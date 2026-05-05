@@ -1,0 +1,31 @@
+# Build results
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET
+*.dll
+*.exe
+*.pdb
+*.json
+*.cache
+*.assets.cache
+*.BuildWithSkipAnalyzers
+
+# Windows Forms
+*.resources
+*.Designer.cs.bak
+
+# Images (if generated)
+# Uncomment if you want to exclude images
+# Images/
+
+# Misc
+*.log
+*.tmp
