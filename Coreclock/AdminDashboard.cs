@@ -199,12 +199,12 @@ namespace Coreclock
             AttendanceLogsDataGridView.Rows.Add("002", "Remixon Ipanag", "Morning", "08:15 AM", "05:10 PM", "8h 55m", "Late");
             AttendanceLogsDataGridView.Rows.Add("003", "Rojamin Merari Pantrollia", "Morning", "—", "—", "—", "Absent");
             AttendanceLogsDataGridView.Rows.Add("004", "Wara Gud", "Night", "10:00 PM", "—", "—", "On Shift");
-            AttendanceLogsDataGridView.Rows.Add("005", "Ana Reyes", "Morning", "08:02 AM", "05:00 PM", "8h 58m", "Present");
-            AttendanceLogsDataGridView.Rows.Add("006", "Marco Dela Cruz", "Night", "10:00 PM", "—", "—", "On Shift");
-            AttendanceLogsDataGridView.Rows.Add("007", "Liza Santos", "Afternoon", "02:00 PM", "—", "—", "On Shift");
-            AttendanceLogsDataGridView.Rows.Add("008", "Ben Alonzo", "Morning", "08:00 AM", "05:00 PM", "9h 00m", "Present");
-            AttendanceLogsDataGridView.Rows.Add("009", "Claire Navarro", "Afternoon", "—", "—", "—", "Off Shift");
-            AttendanceLogsDataGridView.Rows.Add("010", "Dante Villanueva", "Night", "—", "—", "—", "Off Shift");
+            AttendanceLogsDataGridView.Rows.Add("005", "John Cena", "Morning", "08:02 AM", "05:00 PM", "8h 58m", "Present");
+            AttendanceLogsDataGridView.Rows.Add("006", "Si miss gamay", "Night", "10:00 PM", "—", "—", "On Shift");
+            AttendanceLogsDataGridView.Rows.Add("007", "Jong Idol Super", "Afternoon", "02:00 PM", "—", "—", "On Shift");
+            AttendanceLogsDataGridView.Rows.Add("008", "Si Bayong", "Morning", "08:00 AM", "05:00 PM", "9h 00m", "Present");
+            AttendanceLogsDataGridView.Rows.Add("009", "Mia Khalifa", "Afternoon", "—", "—", "—", "Off Shift");
+            AttendanceLogsDataGridView.Rows.Add("010", "Johnny Sins", "Night", "—", "—", "—", "Off Shift");
         }
 
         // ─── EMPLOYEE SEARCH BAR ─────────────────────────────────────────────
