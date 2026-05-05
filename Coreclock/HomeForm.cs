@@ -137,5 +137,12 @@ namespace Coreclock
             bisakols.Show();
             this.Hide();
         }
+
+        private void label3_Click(object sender, EventArgs e)
+        {
+            AdminDashboard adminD = new AdminDashboard();
+           adminD.Show(); 
+            this.Hide();
+        }
     }
 }

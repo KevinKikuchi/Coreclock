@@ -51,7 +51,6 @@
             label11 = new Label();
             pictureBox4 = new PictureBox();
             pictureBox5 = new PictureBox();
-            button1 = new Button();
             panel2.SuspendLayout();
             panel3.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBox2).BeginInit();
@@ -110,6 +109,7 @@
             label3.Size = new Size(179, 17);
             label3.TabIndex = 3;
             label3.Text = "Time management, redefined";
+            label3.Click += label3_Click;
             // 
             // RegisterBtn
             // 
@@ -319,23 +319,12 @@
             pictureBox5.TabStop = false;
             pictureBox5.Click += pictureBox5_Click;
             // 
-            // button1
-            // 
-            button1.Location = new Point(232, 185);
-            button1.Name = "button1";
-            button1.Size = new Size(74, 52);
-            button1.TabIndex = 16;
-            button1.Text = "button1";
-            button1.UseVisualStyleBackColor = true;
-            button1.Click += button1_Click_2;
-            // 
             // HomeForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.Black;
             ClientSize = new Size(323, 588);
-            Controls.Add(button1);
             Controls.Add(pictureBox5);
             Controls.Add(pictureBox4);
             Controls.Add(label11);
@@ -394,6 +383,5 @@
         private Label label11;
         private PictureBox pictureBox4;
         private PictureBox pictureBox5;
-        private Button button1;
     }
 }
