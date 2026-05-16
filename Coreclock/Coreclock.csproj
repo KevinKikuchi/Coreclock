@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <Target Name="KillRunningProcess" BeforeTargets="BeforeBuild">
-    <Exec Command="taskkill /F /IM Coreclock.exe 2>nul || exit /b 0" />
+    <Exec Command="taskkill /F /IM Coreclock.exe 2&gt;nul || exit /b 0" />
   </Target>
 
   <ItemGroup>
@@ -25,6 +25,17 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.7" />
+    <PackageReference Include="Supabase" Version="1.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

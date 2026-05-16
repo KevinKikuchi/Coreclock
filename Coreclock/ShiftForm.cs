@@ -507,8 +507,10 @@ namespace Coreclock
 
             dgv.MouseWheel += (object? s, MouseEventArgs e) =>
             {
+                if (dgv.RowCount == 0) return;
+                int current = dgv.FirstDisplayedScrollingRowIndex;
                 int delta = e.Delta > 0 ? -3 : 3;
-                int newFirst = Math.Max(0, Math.Min(dgv.RowCount - 1, dgv.FirstDisplayedScrollingRowIndex + delta));
+                int newFirst = Math.Max(0, Math.Min(dgv.RowCount - 1, current + delta));
                 dgv.FirstDisplayedScrollingRowIndex = newFirst;
                 UpdateThumb();
             };

@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Coreclock
@@ -86,21 +88,35 @@ namespace Coreclock
             StartClock();
             StyleDateTimePicker();
             SetActiveButton(AttendanceLogsBtn);
-            BuildData();
             BuildTopControls();
             BuildStatCards();
             SetupAttendanceGrid();
             BuildDetailPanel();
-            _filtered = _allRecords;
             StyleProfilePanel();
-            RefreshAll();
 
+            this.Load += async (s, e) =>
+            {
+                await BuildDataFromSupabase();
+                _filtered = _allRecords;
+                RefreshAll();
+            };
         }
         // ─── PROFILE PANEL ────────────────────────────────────────────────────
         private void StyleProfilePanel()
         {
             ProfilePanel.Controls.Clear();
             ProfilePanel.BackColor = Color.FromArgb(30, 30, 30);
+
+            var profile = SupabaseHelper.Instance.CurrentUserProfile;
+            var nameParts = (profile?.FullName ?? "??").Split(' ');
+            var initials = nameParts.Length >= 2
+                ? $"{nameParts[0][0]}{nameParts[1][0]}"
+                : nameParts[0].Substring(0, Math.Min(2, nameParts[0].Length));
+            initials = initials.ToUpper();
+            string fullName = profile?.FullName ?? "Unknown";
+            string employeeId = profile?.EmployeeId ?? "000000";
+            string position = profile?.Role == "admin" ? "Admin" : (profile?.Position ?? "Agent");
+            string contactNumber = profile?.ContactNumber ?? "";
 
             // ── Avatar PictureBox ──
             PictureBox avatar = new PictureBox();
@@ -114,7 +130,7 @@ namespace Coreclock
 
             // Initials label shown when no photo uploaded
             Label lblInitials = new Label();
-            lblInitials.Text = "JI"; // replace with real initials later
+            lblInitials.Text = initials;
             lblInitials.Font = new Font("Segoe UI", 16f, FontStyle.Bold);
             lblInitials.ForeColor = Color.FromArgb(200, 168, 75);
             lblInitials.BackColor = Color.Transparent;
@@ -159,7 +175,7 @@ namespace Coreclock
 
             // ── Name label ──
             Label lblName = new Label();
-            lblName.Text = "Jong Idol"; // replace with real data later
+            lblName.Text = fullName;
             lblName.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             lblName.ForeColor = Color.White;
             lblName.BackColor = Color.Transparent;
@@ -171,7 +187,7 @@ namespace Coreclock
 
             // ── Employee ID label ──
             Label lblId = new Label();
-            lblId.Text = "EMP-001"; // replace with real data later
+            lblId.Text = employeeId;
             lblId.Font = new Font("Segoe UI", 8f);
             lblId.ForeColor = Color.FromArgb(140, 140, 140);
             lblId.BackColor = Color.Transparent;
@@ -183,7 +199,7 @@ namespace Coreclock
 
             // ── Position badge ──
             Label lblPos = new Label();
-            lblPos.Text = "Software Developer"; // replace with real data later
+            lblPos.Text = position;
             lblPos.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
             lblPos.ForeColor = Color.FromArgb(200, 168, 75);
             lblPos.BackColor = Color.FromArgb(42, 35, 10);
@@ -195,11 +211,21 @@ namespace Coreclock
             IntPtr posRgn = CreateRoundRectRgn(0, 0, lblPos.Width, lblPos.Height, 20, 20);
             lblPos.Region = System.Drawing.Region.FromHrgn(posRgn);
 
-            // ── Divider ──
+            Label lblContact = new Label();
+            lblContact.Text = "📞 " + (string.IsNullOrEmpty(contactNumber) ? "N/A" : contactNumber);
+            lblContact.Font = new Font("Segoe UI", 8f);
+            lblContact.ForeColor = Color.FromArgb(170, 170, 170);
+            lblContact.BackColor = Color.Transparent;
+            lblContact.AutoSize = false;
+            lblContact.Width = ProfilePanel.Width - 10;
+            lblContact.Height = 16;
+            lblContact.Location = new Point(5, lblPos.Bottom + 4);
+            lblContact.TextAlign = ContentAlignment.MiddleCenter;
+
             Panel divider = new Panel();
             divider.BackColor = Color.FromArgb(45, 45, 45);
             divider.Size = new Size(ProfilePanel.Width - 24, 1);
-            divider.Location = new Point(12, lblPos.Bottom + 6);
+            divider.Location = new Point(12, lblContact.Bottom + 6);
 
             // ── Status dot ──
             Panel statusDot = new Panel();
@@ -223,6 +249,7 @@ namespace Coreclock
             ProfilePanel.Controls.Add(lblName);
             ProfilePanel.Controls.Add(lblId);
             ProfilePanel.Controls.Add(lblPos);
+            ProfilePanel.Controls.Add(lblContact);
             ProfilePanel.Controls.Add(divider);
             ProfilePanel.Controls.Add(statusDot);
             ProfilePanel.Controls.Add(lblStatus);
@@ -231,118 +258,156 @@ namespace Coreclock
         }
 
         // ─── DATA DEFINITION ─────────────────────────────────────────────────
-        private void BuildData()
+        private bool IsWorkingToday(string workDays, string dayAbbr)
         {
-            static string[] MakeHrs(string[] overrides)
+            if (string.IsNullOrEmpty(workDays)) return true;
+            var days = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+            int todayIndex = Array.IndexOf(days, dayAbbr);
+            if (todayIndex < 0) return false;
+            if (workDays.Contains("-"))
             {
-                var result = new string[14];
-                for (int i = 0; i < 14; i++)
+                var parts = workDays.Split('-');
+                if (parts.Length == 2)
                 {
-                    if (overrides != null && i < overrides.Length && overrides[i] != null)
-                        result[i] = overrides[i];
+                    int start = Array.IndexOf(days, parts[0].Trim());
+                    int end   = Array.IndexOf(days, parts[1].Trim());
+                    if (start >= 0 && end >= 0)
+                    {
+                        if (start <= end) return todayIndex >= start && todayIndex <= end;
+                        else return todayIndex >= start || todayIndex <= end;
+                    }
+                }
+            }
+            return workDays.Split(',').Select(d => d.Trim())
+                           .Contains(dayAbbr, StringComparer.OrdinalIgnoreCase);
+        }
+
+        private async Task BuildDataFromSupabase()
+        {
+            var employees = await SupabaseHelper.Instance.FetchAllEmployeesAsync();
+            var records = new List<EmpRecord>();
+
+            foreach (var emp in employees)
+            {
+                var logs = await SupabaseHelper.Instance.FetchMyLogsAsync(emp.Id);
+
+                DateTime periodStart = IsSemiMonthly
+                    ? GetSemiMonthlyPeriodStart()
+                    : GetWeeklyPeriodStart();
+
+                int dayCount = IsSemiMonthly ? 14 : 7;
+                var dayHrs    = new string[dayCount];
+                var dayTime   = new string[dayCount];
+                var dayStatus = new string[dayCount];
+
+                // Skip employee if registered after this period ends
+                DateTime regDate = DateTime.Today;
+                if (DateTimeOffset.TryParse(emp.CreatedAt, out var parsed))
+                    regDate = parsed.ToLocalTime().Date;
+                DateTime periodEnd = periodStart.AddDays(dayCount - 1);
+                if (regDate > periodEnd) continue;
+
+                double totalHours = 0;
+                int absentCount = 0;
+                int workingDays = 0;
+
+                for (int i = 0; i < dayCount; i++)
+                {
+                    DateTime day = periodStart.AddDays(i);
+                    string dateStr = day.ToString("yyyy-MM-dd");
+                    string dayAbbr = day.ToString("ddd");
+
+                    if (!IsWorkingToday(emp.WorkDays, dayAbbr))
+                    {
+                        dayHrs[i]    = "DO";
+                        dayTime[i]   = "";
+                        dayStatus[i] = "dayoff";
+                        continue;
+                    }
+
+                    workingDays++;
+                    var log = logs.FirstOrDefault(l => l.Date == dateStr);
+
+                    if (log == null)
+                    {
+                        if (day.Date >= DateTime.Today || day.Date < regDate)
+                        {
+                            dayHrs[i]    = "—";
+                            dayTime[i]   = "";
+                            dayStatus[i] = "dayoff";
+                        }
+                        else
+                        {
+                            dayHrs[i]    = "Absent";
+                            dayTime[i]   = "";
+                            dayStatus[i] = "absent";
+                            absentCount++;
+                        }
+                    }
+                    else if (log.Status == "Absent")
+                    {
+                        dayHrs[i]    = "Absent";
+                        dayTime[i]   = "";
+                        dayStatus[i] = "absent";
+                        absentCount++;
+                    }
                     else
                     {
-                        var dow = new DateTime(2026, 5, i + 1).DayOfWeek;
-                        result[i] = (dow == DayOfWeek.Saturday || dow == DayOfWeek.Sunday) ? "DO" : "8 hrs";
+                        double hrs = 0;
+                        if (DateTime.TryParse(log.TimeIn, out var tin) &&
+                            DateTime.TryParse(log.TimeOut, out var tout))
+                        {
+                            hrs = (tout - tin).TotalHours;
+                            totalHours += hrs;
+                            dayTime[i] = $"{log.TimeIn} – {log.TimeOut}";
+                        }
+                        else
+                        {
+                            dayTime[i] = log.TimeIn ?? "";
+                        }
+
+                        string hrsStr = hrs > 0 ? $"{hrs:0.##} hrs" : "—";
+                        dayHrs[i] = hrsStr;
+                        dayStatus[i] = hrs >= 8 ? "ontime" : (hrs > 0 ? "late" : "ontime");
                     }
                 }
-                return result;
-            }
 
-            static string[] MakeTime(string[] hrs)
-            {
-                var t = new string[14];
-                for (int i = 0; i < 14; i++)
-                    t[i] = (hrs[i] == "DO" || hrs[i] == "Absent") ? "" : "08:00 AM – 05:00 PM";
-                return t;
-            }
+                double possible = workingDays * 8.0;
+                double prod = possible > 0 ? (totalHours / possible * 100) : 0;
+                string prodStr = $"{prod:F1}%";
 
-            static string[] MakeStat(string[] hrs)
-            {
-                var s = new string[14];
-                for (int i = 0; i < 14; i++)
+                bool hasAbsent = dayStatus.Any(s => s == "absent");
+                bool hasLate   = dayStatus.Any(s => s == "late");
+                string overallStatus = hasAbsent ? "absent" : hasLate ? "late" : "ontime";
+
+                int th = (int)totalHours;
+                int tm = (int)((totalHours - th) * 60);
+
+                records.Add(new EmpRecord
                 {
-                    if (hrs[i] == "DO") s[i] = "dayoff";
-                    else if (hrs[i] == "Absent") s[i] = "absent";
-                    else
-                    {
-                        string n = hrs[i].Replace("hrs", "").Trim();
-                        if (double.TryParse(n, System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out double v))
-                            s[i] = v < 8.0 ? "late" : "ontime";
-                        else s[i] = "ontime";
-                    }
-                }
-                return s;
+                    ID         = emp.EmployeeId,
+                    Name       = emp.FullName,
+                    TotalHrs   = $"{th}h {tm}m",
+                    SMTotalHrs = $"{th}h {tm}m",
+                    Prod       = prodStr,
+                    SMProd     = prodStr,
+                    Status     = overallStatus,
+                    SMStatus   = overallStatus,
+                    DayHrs     = dayHrs,
+                    DayTime    = dayTime,
+                    DayStatus  = dayStatus,
+                    Mon = dayHrs.Length > 0 ? dayHrs[0] : "—",
+                    Tue = dayHrs.Length > 1 ? dayHrs[1] : "—",
+                    Wed = dayHrs.Length > 2 ? dayHrs[2] : "—",
+                    Thu = dayHrs.Length > 3 ? dayHrs[3] : "—",
+                    Fri = dayHrs.Length > 4 ? dayHrs[4] : "—",
+                    Sat = dayHrs.Length > 5 ? dayHrs[5] : "DO",
+                    Sun = dayHrs.Length > 6 ? dayHrs[6] : "DO",
+                });
             }
 
-            static string CalcSMTotal(string[] hrs)
-            {
-                double t = 0;
-                foreach (var h in hrs)
-                {
-                    string n = h.Replace("hrs", "").Trim();
-                    if (double.TryParse(n, System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out double v))
-                        t += v;
-                }
-                return $"{t:0.##} hrs";
-            }
-
-            static string CalcSMProd(string[] hrs)
-            {
-                double possible = 0, actual = 0;
-                foreach (var h in hrs)
-                {
-                    if (h != "DO")
-                    {
-                        possible += 8;
-                        string n = h.Replace("hrs", "").Trim();
-                        if (double.TryParse(n, System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out double v))
-                            actual += v;
-                    }
-                }
-                return possible == 0 ? "0%" : $"{(actual / possible * 100):F1}%";
-            }
-
-            static string CalcSMStatus(string[] stats)
-            {
-                bool hasAbsent = false, hasLate = false;
-                foreach (var s in stats)
-                {
-                    if (s == "absent") hasAbsent = true;
-                    if (s == "late") hasLate = true;
-                }
-                if (hasAbsent) return "absent";
-                if (hasLate) return "late";
-                return "ontime";
-            }
-
-            var hrs001 = MakeHrs(new string[] { "8 hrs", "DO", "DO", "8 hrs", "8 hrs", "8 hrs", "8 hrs", "8 hrs", "DO", "DO", "8 hrs", "8 hrs", "8 hrs", "8 hrs" });
-            var hrs002 = MakeHrs(new string[] { "7.59 hrs", "DO", "DO", "7.45 hrs", "8 hrs", "8 hrs", "8 hrs", "8 hrs", "DO", "DO", "8 hrs", "8 hrs", "8 hrs", "8 hrs" });
-            var hrs003 = MakeHrs(new string[] { "8 hrs", "DO", "DO", "8 hrs", "8 hrs", "Absent", "8 hrs", "8 hrs", "DO", "DO", "8 hrs", "8 hrs", "8 hrs", "8 hrs" });
-            var hrs004 = MakeHrs(new string[] { "8 hrs", "DO", "DO", "8 hrs", "8 hrs", "8 hrs", "8 hrs", "4 hrs", "DO", "DO", "8 hrs", "8 hrs", "8 hrs", "8 hrs" });
-            var hrs005 = MakeHrs(new string[] { "8 hrs", "DO", "DO", "DO", "8 hrs", "8 hrs", "8 hrs", "8 hrs", "DO", "DO", "8 hrs", "8 hrs", "8 hrs", "8 hrs" });
-            var hrs006 = MakeHrs(new string[] { "8 hrs", "DO", "DO", "8 hrs", "Absent", "8 hrs", "8 hrs", "8 hrs", "DO", "DO", "8 hrs", "8 hrs", "8 hrs", "Absent" });
-            var hrs007 = MakeHrs(null);
-            var hrs008 = MakeHrs(new string[] { "7.30 hrs", "DO", "DO", "8 hrs", "8 hrs", "8 hrs", "8 hrs", "8 hrs", "DO", "DO", "7.45 hrs", "8 hrs", "8 hrs", "8 hrs" });
-
-            var time002 = new string[] { "08:10 AM – 05:41 PM", "", "", "08:15 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "", "", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM" };
-            var time004 = new string[] { "08:00 AM – 05:00 PM", "", "", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 12:00 PM", "", "", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM" };
-            var time008 = new string[] { "08:20 AM – 05:00 PM", "", "", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "", "", "08:15 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM", "08:00 AM – 05:00 PM" };
-
-            _allRecords = new EmpRecord[]
-            {
-                new EmpRecord { ID="EMP-001", Name="Mia Khalifa",  Mon="8 hrs",     Tue="8 hrs", Wed="8 hrs",     Thu="8 hrs", Fri="8 hrs", Sat="DO", Sun="DO", TotalHrs="40 hrs",    Prod="100%",   Status="ontime", MonTime="08:01 AM – 05:01 PM", TueTime="08:00 AM – 05:00 PM", WedTime="08:00 AM – 05:00 PM", ThuTime="08:00 AM – 05:00 PM", FriTime="08:00 AM – 05:00 PM", MonStatus="ontime", TueStatus="ontime", WedStatus="ontime", ThuStatus="ontime", FriStatus="ontime", DayHrs=hrs001, DayTime=MakeTime(hrs001), DayStatus=MakeStat(hrs001), SMTotalHrs=CalcSMTotal(hrs001), SMProd=CalcSMProd(hrs001), SMStatus=CalcSMStatus(MakeStat(hrs001)) },
-                new EmpRecord { ID="EMP-002", Name="Johnny Sins",    Mon="7.59 hrs",  Tue="8 hrs", Wed="8 hrs",     Thu="8 hrs", Fri="8 hrs", Sat="DO", Sun="DO", TotalHrs="39.59 hrs", Prod="99.7%",  Status="late",   MonTime="08:10 AM – 05:41 PM", TueTime="08:00 AM – 05:00 PM", WedTime="08:02 AM – 05:02 PM", ThuTime="08:01 AM – 05:01 PM", FriTime="08:00 AM – 05:00 PM", MonStatus="late",   TueStatus="ontime", WedStatus="ontime", ThuStatus="ontime", FriStatus="ontime", DayHrs=hrs002, DayTime=time002,           DayStatus=MakeStat(hrs002), SMTotalHrs=CalcSMTotal(hrs002), SMProd=CalcSMProd(hrs002), SMStatus=CalcSMStatus(MakeStat(hrs002)) },
-                new EmpRecord { ID="EMP-003", Name="Si kuan",    Mon="8 hrs",     Tue="8 hrs", Wed="7.45 hrs",  Thu="8 hrs", Fri="8 hrs", Sat="DO", Sun="DO", TotalHrs="39.45 hrs", Prod="98.6%",  Status="late",   MonTime="08:00 AM – 05:00 PM", TueTime="08:00 AM – 05:00 PM", WedTime="08:15 AM – 05:00 PM", ThuTime="08:00 AM – 05:00 PM", FriTime="08:00 AM – 05:00 PM", MonStatus="ontime", TueStatus="ontime", WedStatus="late",   ThuStatus="ontime", FriStatus="ontime", DayHrs=hrs003, DayTime=MakeTime(hrs003), DayStatus=MakeStat(hrs003), SMTotalHrs=CalcSMTotal(hrs003), SMProd=CalcSMProd(hrs003), SMStatus=CalcSMStatus(MakeStat(hrs003)) },
-                new EmpRecord { ID="EMP-004", Name="Miss Gamay",      Mon="8 hrs",     Tue="8 hrs", Wed="8 hrs",     Thu="8 hrs", Fri="4 hrs", Sat="DO", Sun="DO", TotalHrs="36 hrs",    Prod="90.0%",  Status="late",   MonTime="08:00 AM – 05:00 PM", TueTime="08:00 AM – 05:00 PM", WedTime="08:00 AM – 05:00 PM", ThuTime="08:00 AM – 05:00 PM", FriTime="08:00 AM – 12:00 PM", MonStatus="ontime", TueStatus="ontime", WedStatus="ontime", ThuStatus="ontime", FriStatus="late",   DayHrs=hrs004, DayTime=time004,           DayStatus=MakeStat(hrs004), SMTotalHrs=CalcSMTotal(hrs004), SMProd=CalcSMProd(hrs004), SMStatus=CalcSMStatus(MakeStat(hrs004)) },
-                new EmpRecord { ID="EMP-005", Name="arp arp", Mon="8 hrs",     Tue="DO",    Wed="8 hrs",     Thu="8 hrs", Fri="8 hrs", Sat="DO", Sun="DO", TotalHrs="32 hrs",    Prod="80.0%",  Status="dayoff", MonTime="08:00 AM – 05:00 PM", TueTime="",                    WedTime="08:00 AM – 05:00 PM", ThuTime="08:00 AM – 05:00 PM", FriTime="08:00 AM – 05:00 PM", MonStatus="ontime", TueStatus="dayoff", WedStatus="ontime", ThuStatus="ontime", FriStatus="ontime", DayHrs=hrs005, DayTime=MakeTime(hrs005), DayStatus=MakeStat(hrs005), SMTotalHrs=CalcSMTotal(hrs005), SMProd=CalcSMProd(hrs005), SMStatus=CalcSMStatus(MakeStat(hrs005)) },
-                new EmpRecord { ID="EMP-006", Name="Jonh Idol",   Mon="8 hrs",     Tue="8 hrs", Wed="Absent",    Thu="8 hrs", Fri="8 hrs", Sat="DO", Sun="DO", TotalHrs="32 hrs",    Prod="80.0%",  Status="absent", MonTime="08:00 AM – 05:00 PM", TueTime="08:00 AM – 05:00 PM", WedTime="",                    ThuTime="08:00 AM – 05:00 PM", FriTime="08:00 AM – 05:00 PM", MonStatus="ontime", TueStatus="ontime", WedStatus="absent", ThuStatus="ontime", FriStatus="ontime", DayHrs=hrs006, DayTime=MakeTime(hrs006), DayStatus=MakeStat(hrs006), SMTotalHrs=CalcSMTotal(hrs006), SMProd=CalcSMProd(hrs006), SMStatus=CalcSMStatus(MakeStat(hrs006)) },
-                new EmpRecord { ID="EMP-007", Name="Kuan Ba",    Mon="8 hrs",     Tue="8 hrs", Wed="8 hrs",     Thu="8 hrs", Fri="8 hrs", Sat="DO", Sun="DO", TotalHrs="40 hrs",    Prod="100%",   Status="ontime", MonTime="08:00 AM – 05:00 PM", TueTime="08:00 AM – 05:00 PM", WedTime="08:00 AM – 05:00 PM", ThuTime="08:00 AM – 05:00 PM", FriTime="08:00 AM – 05:00 PM", MonStatus="ontime", TueStatus="ontime", WedStatus="ontime", ThuStatus="ontime", FriStatus="ontime", DayHrs=hrs007, DayTime=MakeTime(hrs007), DayStatus=MakeStat(hrs007), SMTotalHrs=CalcSMTotal(hrs007), SMProd=CalcSMProd(hrs007), SMStatus=CalcSMStatus(MakeStat(hrs007)) },
-                new EmpRecord { ID="EMP-008", Name="Karla Buriton",  Mon="7.30 hrs",  Tue="8 hrs", Wed="8 hrs",     Thu="8 hrs", Fri="8 hrs", Sat="DO", Sun="DO", TotalHrs="39.30 hrs", Prod="98.3%",  Status="late",   MonTime="08:20 AM – 05:00 PM", TueTime="08:00 AM – 05:00 PM", WedTime="08:00 AM – 05:00 PM", ThuTime="08:00 AM – 05:00 PM", FriTime="08:00 AM – 05:00 PM", MonStatus="late",   TueStatus="ontime", WedStatus="ontime", ThuStatus="ontime", FriStatus="ontime", DayHrs=hrs008, DayTime=time008,           DayStatus=MakeStat(hrs008), SMTotalHrs=CalcSMTotal(hrs008), SMProd=CalcSMProd(hrs008), SMStatus=CalcSMStatus(MakeStat(hrs008)) },
-            };
+            _allRecords = records.ToArray();
+            _filtered   = _allRecords;
         }
 
         // ─── PERIOD BUILDERS ─────────────────────────────────────────────────
@@ -407,7 +472,7 @@ namespace Coreclock
             txtSearch.Font = new Font("Segoe UI", 9f);
             txtSearch.Location = new Point(gx + 360, gy - 30);
             txtSearch.Size = new Size(200, 24);
-            txtSearch.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) RunGenerate(); };
+            txtSearch.KeyDown += async (s, e) => { if (e.KeyCode == Keys.Enter) await RunGenerateAsync(); };
             parent.Controls.Add(txtSearch);
 
             btnGenerate = new Button();
@@ -420,13 +485,13 @@ namespace Coreclock
             btnGenerate.Location = new Point(gx + 572, gy - 32);
             btnGenerate.Size = new Size(110, 28);
             btnGenerate.Cursor = Cursors.Hand;
-            btnGenerate.Click += (s, e) => RunGenerate();
+            btnGenerate.Click += async (s, e) => await RunGenerateAsync();
             IntPtr hRgn = CreateRoundRectRgn(0, 0, btnGenerate.Width, btnGenerate.Height, 12, 12);
             btnGenerate.Region = System.Drawing.Region.FromHrgn(hRgn);
             parent.Controls.Add(btnGenerate);
         }
 
-        private void CmbViewMode_SelectedIndexChanged(object sender, EventArgs e)
+        private async void CmbViewMode_SelectedIndexChanged(object sender, EventArgs e)
         {
             cmbWeek.Items.Clear();
             foreach (var p in IsSemiMonthly ? BuildSemiMonthlyPeriods() : BuildWeeklyPeriods())
@@ -434,12 +499,16 @@ namespace Coreclock
             if (cmbWeek.Items.Count > 0) cmbWeek.SelectedIndex = 0;
             SetupAttendanceGrid();
             RebuildDetailPanelForMode();
+            await BuildDataFromSupabase();
+            _filtered = _allRecords;
             RefreshAll();
         }
 
-        private void CmbWeek_SelectedIndexChanged(object sender, EventArgs e)
+        private async void CmbWeek_SelectedIndexChanged(object sender, EventArgs e)
         {
             SetupAttendanceGrid();
+            await BuildDataFromSupabase();
+            _filtered = _allRecords;
             RefreshAll();
         }
 
@@ -725,8 +794,9 @@ namespace Coreclock
         }
 
         // ─── GENERATE / FILTER ───────────────────────────────────────────────
-        private void RunGenerate()
+        private async Task RunGenerateAsync()
         {
+            await BuildDataFromSupabase();
             string q = txtSearch?.Text?.Trim().ToLower() ?? "";
             _filtered = string.IsNullOrEmpty(q)
                 ? _allRecords

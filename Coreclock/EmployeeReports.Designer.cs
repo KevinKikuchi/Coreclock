@@ -30,6 +30,7 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(EmployeeReports));
             panel1 = new Panel();
+            ProfilePanel = new Panel();
             ReportsBtn = new Button();
             LogOutBtn = new Button();
             MyDashboardBtn = new Button();
@@ -60,7 +61,6 @@
             label10 = new Label();
             ClearBtn = new Button();
             SendBtn = new Button();
-            ProfilePanel = new Panel();
             panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
             ((System.ComponentModel.ISupportInitialize)pictureBox2).BeginInit();
@@ -80,6 +80,14 @@
             panel1.Size = new Size(220, 601);
             panel1.TabIndex = 1;
             panel1.Paint += panel1_Paint;
+            // 
+            // ProfilePanel
+            // 
+            ProfilePanel.BackColor = Color.FromArgb(20, 20, 20);
+            ProfilePanel.Location = new Point(15, 343);
+            ProfilePanel.Name = "ProfilePanel";
+            ProfilePanel.Size = new Size(188, 207);
+            ProfilePanel.TabIndex = 12;
             // 
             // ReportsBtn
             // 
@@ -429,14 +437,6 @@
             SendBtn.Text = "✉ Send";
             SendBtn.TextAlign = ContentAlignment.BottomCenter;
             SendBtn.UseVisualStyleBackColor = false;
-            // 
-            // ProfilePanel
-            // 
-            ProfilePanel.BackColor = Color.FromArgb(20, 20, 20);
-            ProfilePanel.Location = new Point(15, 359);
-            ProfilePanel.Name = "ProfilePanel";
-            ProfilePanel.Size = new Size(188, 200);
-            ProfilePanel.TabIndex = 12;
             // 
             // EmployeeReports
             // 

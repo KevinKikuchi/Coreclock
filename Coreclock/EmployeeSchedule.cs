@@ -26,6 +26,7 @@ namespace Coreclock
         // ─── SEARCH + DATA ───────────────────────────────────────────────────
         private TextBox scheduleSearchBox;
         private List<object[]> allScheduleRows = new List<object[]>();
+        private Dictionary<string, string> employeeIdToUuid = new Dictionary<string, string>();
 
         private Control _schedGridOriginalParent;
         private Point _schedGridOriginalLocation;
@@ -53,12 +54,26 @@ namespace Coreclock
             WrapGridWithDarkScroll(ScheduleDataGridView);
             AddScheduleSearchBar();
             AddActionButtons();
+
+            // Load real employees from Supabase after form is shown
+            this.Load += async (s, e) => await LoadScheduleFromSupabase();
         }
         // ─── PROFILE PANEL ────────────────────────────────────────────────────
         private void StyleProfilePanel()
         {
             ProfilePanel.Controls.Clear();
             ProfilePanel.BackColor = Color.FromArgb(30, 30, 30);
+
+            var profile = SupabaseHelper.Instance.CurrentUserProfile;
+            var nameParts = (profile?.FullName ?? "??").Split(' ');
+            var initials = nameParts.Length >= 2
+                ? $"{nameParts[0][0]}{nameParts[1][0]}"
+                : nameParts[0].Substring(0, Math.Min(2, nameParts[0].Length));
+            initials = initials.ToUpper();
+            string fullName = profile?.FullName ?? "Unknown";
+            string employeeId = profile?.EmployeeId ?? "000000";
+            string position = profile?.Role == "admin" ? "Admin" : (profile?.Position ?? "Agent");
+            string contactNumber = profile?.ContactNumber ?? "";
 
             // ── Avatar PictureBox ──
             PictureBox avatar = new PictureBox();
@@ -72,7 +87,7 @@ namespace Coreclock
 
             // Initials label shown when no photo uploaded
             Label lblInitials = new Label();
-            lblInitials.Text = "JIb r"; // replace with real initials later
+            lblInitials.Text = initials;
             lblInitials.Font = new Font("Segoe UI", 16f, FontStyle.Bold);
             lblInitials.ForeColor = Color.FromArgb(200, 168, 75);
             lblInitials.BackColor = Color.Transparent;
@@ -117,7 +132,7 @@ namespace Coreclock
 
             // ── Name label ──
             Label lblName = new Label();
-            lblName.Text = "Jong Idol"; // replace with real data later
+            lblName.Text = fullName;
             lblName.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             lblName.ForeColor = Color.White;
             lblName.BackColor = Color.Transparent;
@@ -129,7 +144,7 @@ namespace Coreclock
 
             // ── Employee ID label ──
             Label lblId = new Label();
-            lblId.Text = "EMP-001"; // replace with real data later
+            lblId.Text = employeeId;
             lblId.Font = new Font("Segoe UI", 8f);
             lblId.ForeColor = Color.FromArgb(140, 140, 140);
             lblId.BackColor = Color.Transparent;
@@ -141,7 +156,7 @@ namespace Coreclock
 
             // ── Position badge ──
             Label lblPos = new Label();
-            lblPos.Text = "Software Developer"; // replace with real data later
+            lblPos.Text = position;
             lblPos.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
             lblPos.ForeColor = Color.FromArgb(200, 168, 75);
             lblPos.BackColor = Color.FromArgb(42, 35, 10);
@@ -153,11 +168,21 @@ namespace Coreclock
             IntPtr posRgn = CreateRoundRectRgn(0, 0, lblPos.Width, lblPos.Height, 20, 20);
             lblPos.Region = System.Drawing.Region.FromHrgn(posRgn);
 
-            // ── Divider ──
+            Label lblContact = new Label();
+            lblContact.Text = "📞 " + (string.IsNullOrEmpty(contactNumber) ? "N/A" : contactNumber);
+            lblContact.Font = new Font("Segoe UI", 8f);
+            lblContact.ForeColor = Color.FromArgb(170, 170, 170);
+            lblContact.BackColor = Color.Transparent;
+            lblContact.AutoSize = false;
+            lblContact.Width = ProfilePanel.Width - 10;
+            lblContact.Height = 16;
+            lblContact.Location = new Point(5, lblPos.Bottom + 4);
+            lblContact.TextAlign = ContentAlignment.MiddleCenter;
+
             Panel divider = new Panel();
             divider.BackColor = Color.FromArgb(45, 45, 45);
             divider.Size = new Size(ProfilePanel.Width - 24, 1);
-            divider.Location = new Point(12, lblPos.Bottom + 6);
+            divider.Location = new Point(12, lblContact.Bottom + 6);
 
             // ── Status dot ──
             Panel statusDot = new Panel();
@@ -181,6 +206,7 @@ namespace Coreclock
             ProfilePanel.Controls.Add(lblName);
             ProfilePanel.Controls.Add(lblId);
             ProfilePanel.Controls.Add(lblPos);
+            ProfilePanel.Controls.Add(lblContact);
             ProfilePanel.Controls.Add(divider);
             ProfilePanel.Controls.Add(statusDot);
             ProfilePanel.Controls.Add(lblStatus);
@@ -283,7 +309,7 @@ namespace Coreclock
         {
             ScheduleDataGridView.Columns.Clear();
 
-            var colID = new DataGridViewTextBoxColumn { Name = "EmpID", HeaderText = "ID", Width = 50 };
+            var colID = new DataGridViewTextBoxColumn { Name = "EmpID", HeaderText = "ID", Width = 120 };
             var colName = new DataGridViewTextBoxColumn { Name = "Name", HeaderText = "Name", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill };
             var colPost = new DataGridViewTextBoxColumn { Name = "Position", HeaderText = "Position", Width = 100 };
             var colShift = new DataGridViewTextBoxColumn { Name = "Shift", HeaderText = "Shift", Width = 80 };
@@ -313,15 +339,35 @@ namespace Coreclock
 
             ApplyGridStyle(ScheduleDataGridView);
             ScheduleDataGridView.ScrollBars = ScrollBars.None;
+            // Rows are loaded asynchronously via LoadScheduleFromSupabase()
+        }
 
-            // Sample Chat Support
-            allScheduleRows.Add(new object[] { "001", "Kevin Kikuchi", "Chat Support", "Morning", "Mon-Fri", "08:00 AM", "05:00 PM" });
-            allScheduleRows.Add(new object[] { "002", "Remixon Ipanag", "Chat Support", "Morning", "Mon-Fri", "08:00 AM", "05:00 PM" });
-            allScheduleRows.Add(new object[] { "003", "Rojamin Merari Pantrollia", "Chat Support", "Morning", "Mon-Sat", "08:00 AM", "05:00 PM" });
-            allScheduleRows.Add(new object[] { "004", "Wara Gud", "Chat Support", "Night", "Mon-Fri", "10:00 PM", "06:00 AM" });
+        // ─── LOAD SCHEDULE FROM SUPABASE ──────────────────────────────────────
+        private async Task LoadScheduleFromSupabase()
+        {
+            try
+            {
+                var employees = await SupabaseHelper.Instance.FetchAllEmployeesAsync();
 
-            foreach (var row in allScheduleRows)
-                ScheduleDataGridView.Rows.Add(row);
+                allScheduleRows.Clear();
+                ScheduleDataGridView.Rows.Clear();
+                employeeIdToUuid.Clear();
+
+                foreach (var emp in employees)
+                {
+                    var row = new object[] { emp.EmployeeId, emp.FullName, emp.Position, emp.ShiftType, emp.WorkDays, emp.ShiftTimeIn, emp.ShiftTimeOut };
+                    allScheduleRows.Add(row);
+                    ScheduleDataGridView.Rows.Add(row);
+
+                    // Store mapping: employeeId → userId (UUID)
+                    if (!string.IsNullOrEmpty(emp.EmployeeId) && !string.IsNullOrEmpty(emp.Id))
+                        employeeIdToUuid[emp.EmployeeId] = emp.Id;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load schedule: {ex.Message}");
+            }
         }
 
         // ─── ACTION BUTTONS (Add / Delete / Save) ────────────────────────────
@@ -376,14 +422,17 @@ namespace Coreclock
                 IntPtr hRgn = CreateRoundRectRgn(0, 0, btnDelete.Width, btnDelete.Height, 12, 12);
                 btnDelete.Region = System.Drawing.Region.FromHrgn(hRgn);
             };
-            btnDelete.Click += (object? s, EventArgs e) =>
+            btnDelete.Click += async (object? s, EventArgs e) =>
             {
                 if (ScheduleDataGridView.CurrentRow == null) return;
                 int idx = ScheduleDataGridView.CurrentRow.Index;
                 if (idx < 0 || idx >= ScheduleDataGridView.Rows.Count) return;
 
+                // Get Employee ID from the selected row to find the UUID
+                var empId = ScheduleDataGridView.Rows[idx].Cells["EmpID"].Value?.ToString() ?? "";
+
                 var confirm = MessageBox.Show(
-                    "Delete this schedule entry?",
+                    $"Are you sure you want to permanently delete employee {empId}?",
                     "Confirm Delete",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning
@@ -391,10 +440,33 @@ namespace Coreclock
 
                 if (confirm == DialogResult.Yes)
                 {
-                    // Remove from master list and grid
-                    if (idx < allScheduleRows.Count)
-                        allScheduleRows.RemoveAt(idx);
-                    ScheduleDataGridView.Rows.RemoveAt(idx);
+                    bool canRemoveFromGrid = true;
+
+                    // If the employee exists in Supabase, delete them there first
+                    if (!string.IsNullOrEmpty(empId) && employeeIdToUuid.ContainsKey(empId))
+                    {
+                        string userId = employeeIdToUuid[empId];
+                        var result = await SupabaseHelper.Instance.DeleteEmployeeAsync(userId);
+                        
+                        if (!result.success)
+                        {
+                            MessageBox.Show($"Failed to delete from database:\n{result.error}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            canRemoveFromGrid = false;
+                        }
+                    }
+
+                    if (canRemoveFromGrid)
+                    {
+                        // Remove from master list and grid
+                        if (idx < allScheduleRows.Count)
+                            allScheduleRows.RemoveAt(idx);
+                        
+                        ScheduleDataGridView.Rows.RemoveAt(idx);
+
+                        // Clean up the mapping
+                        if (!string.IsNullOrEmpty(empId))
+                            employeeIdToUuid.Remove(empId);
+                    }
                 }
             };
 
@@ -414,29 +486,47 @@ namespace Coreclock
                 IntPtr hRgn = CreateRoundRectRgn(0, 0, btnSave.Width, btnSave.Height, 12, 12);
                 btnSave.Region = System.Drawing.Region.FromHrgn(hRgn);
             };
-            btnSave.Click += (object? s, EventArgs e) =>
+            btnSave.Click += async (object? s, EventArgs e) =>
             {
                 // Commit any active edit
                 ScheduleDataGridView.EndEdit();
 
-                // Sync grid back to master list
+                // Sync grid back to master list and save to Supabase
                 allScheduleRows.Clear();
+                int savedCount = 0;
+                string lastError = "";
+
                 foreach (DataGridViewRow row in ScheduleDataGridView.Rows)
                 {
                     if (row.IsNewRow) continue;
-                    allScheduleRows.Add(new object[]
+                    var empId = row.Cells["EmpID"].Value?.ToString() ?? "";
+                    var name = row.Cells["Name"].Value?.ToString() ?? "";
+                    var position = row.Cells["Position"].Value?.ToString() ?? "";
+                    var shift = row.Cells["Shift"].Value?.ToString() ?? "";
+                    var workDays = row.Cells["WorkDays"].Value?.ToString() ?? "";
+                    var timeIn = row.Cells["TimeIn"].Value?.ToString() ?? "";
+                    var timeOut = row.Cells["TimeOut"].Value?.ToString() ?? "";
+
+                    allScheduleRows.Add(new object[] { empId, name, position, shift, workDays, timeIn, timeOut });
+
+                    // Save to Supabase using UUID (id) instead of employee_id
+                    if (!string.IsNullOrEmpty(empId) && employeeIdToUuid.ContainsKey(empId))
                     {
-                        row.Cells["EmpID"].Value     ?? "",
-                        row.Cells["Name"].Value      ?? "",
-                        row.Cells["Position"].Value  ?? "",
-                        row.Cells["Shift"].Value     ?? "",
-                        row.Cells["WorkDays"].Value  ?? "",
-                        row.Cells["TimeIn"].Value    ?? "",
-                        row.Cells["TimeOut"].Value   ?? ""
-                    });
+                        string userId = employeeIdToUuid[empId];
+                        var result = await SupabaseHelper.Instance.SaveScheduleAsync(userId, workDays, shift, timeIn, timeOut);
+                        if (result.success)
+                        {
+                            savedCount++;
+                            await SupabaseHelper.Instance.DeleteTodayAbsentAsync(userId);
+                        }
+                        else lastError = result.error;
+                    }
                 }
 
-                MessageBox.Show("Schedule saved successfully!", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (string.IsNullOrEmpty(lastError))
+                    MessageBox.Show($"Schedule saved successfully! ({savedCount} employees updated)", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                else
+                    MessageBox.Show($"Save failed:\n{lastError}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             };
 
             _schedGridOriginalParent.Controls.Add(btnAdd);
@@ -645,6 +735,7 @@ namespace Coreclock
 
             dgv.MouseWheel += (object? s, MouseEventArgs e) =>
             {
+                if (dgv.RowCount == 0) return;
                 int current = dgv.FirstDisplayedScrollingRowIndex;
                 int delta = e.Delta > 0 ? -3 : 3;
                 int newFirst = Math.Max(0, Math.Min(dgv.RowCount - 1, current + delta));

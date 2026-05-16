@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
@@ -19,6 +20,8 @@ namespace Coreclock
         );
 
         private System.Windows.Forms.Timer clockTimer;
+        private System.Windows.Forms.Timer _midnightTimer;
+        private DateTime _lastLoadedDate = DateTime.Today;
         private Panel dtpPanel;
         private Label dtpLabel;
         private Button _activeBtn;
@@ -35,6 +38,7 @@ namespace Coreclock
         public AdminDashboard()
         {
             InitializeComponent();
+            CheckSession();
             ApplyRoundedCorners();
             StartClock();
             StyleDateTimePicker();
@@ -51,6 +55,51 @@ namespace Coreclock
             AddEmployeeSearchBar();
 
             SetActiveButton(AdminDashboardBtn);
+
+            // Load real employees from Supabase after form is shown
+            this.Load += async (s, e) =>
+            {
+                await SupabaseHelper.Instance.MarkAbsentIfLateAsync();
+                await LoadEmployeesFromSupabase();
+                await LoadTodaysShiftAsync();
+                StartMidnightTimer();
+            };
+        }
+
+        private void CheckSession()
+        {
+            var session = SupabaseHelper.Instance.CurrentSession;
+            if (session == null)
+            {
+                LoginFrm login = new LoginFrm();
+                login.Show();
+                this.Hide();
+                return;
+            }
+
+            if (SupabaseHelper.Instance.CurrentUserProfile?.Role != "admin")
+            {
+                EmployeeDashboard empDash = new EmployeeDashboard();
+                empDash.Show();
+                this.Hide();
+            }
+        }
+
+        private void StartMidnightTimer()
+        {
+            _midnightTimer = new System.Windows.Forms.Timer();
+            _midnightTimer.Interval = 60000;
+            _midnightTimer.Tick += async (s, e) =>
+            {
+                if (DateTime.Today > _lastLoadedDate)
+                {
+                    _lastLoadedDate = DateTime.Today;
+                    await SupabaseHelper.Instance.MarkAbsentIfLateAsync();
+                    await LoadEmployeesFromSupabase();
+                    await LoadTodaysShiftAsync();
+                }
+            };
+            _midnightTimer.Start();
         }
 
         // ─── CLOCK ───────────────────────────────────────────────────────────
@@ -143,7 +192,7 @@ namespace Coreclock
         {
             EmployeeDataGridView.Columns.Clear();
 
-            var colID = new DataGridViewTextBoxColumn { Name = "EmpID", HeaderText = "ID", Width = 50 };
+            var colID = new DataGridViewTextBoxColumn { Name = "EmpID", HeaderText = "ID", Width = 120 };
             var colName = new DataGridViewTextBoxColumn { Name = "Name", HeaderText = "Name", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill };
             var colPos = new DataGridViewTextBoxColumn { Name = "Position", HeaderText = "Position", Width = 100 };
 
@@ -157,14 +206,34 @@ namespace Coreclock
             ApplyGridStyle(EmployeeDataGridView);
             EmployeeDataGridView.CellPainting += EmployeeCellPainting;
             EmployeeDataGridView.ScrollBars = ScrollBars.None;
+            // Rows are loaded asynchronously via LoadEmployeesFromSupabase()
+        }
 
-            allEmployeeRows.Add(new object[] { "001", "Kevin Kikuchi", "Engineering", "Developer", "Present" });
-            allEmployeeRows.Add(new object[] { "002", "Remixon Ipanag", "HR", "Manager", "Present" });
-            allEmployeeRows.Add(new object[] { "003", "Rojamin Merari Pantrollia", "Finance", "Accountant", "Absent" });
-            allEmployeeRows.Add(new object[] { "004", "Wara Gud", "Engineering", "QA", "Late" });
+        // ─── LOAD EMPLOYEES FROM SUPABASE ────────────────────────────────────
+        private async Task LoadEmployeesFromSupabase()
+        {
+            try
+            {
+                var employees = await SupabaseHelper.Instance.FetchAllEmployeesAsync();
 
-            foreach (var row in allEmployeeRows)
-                EmployeeDataGridView.Rows.Add(row);
+                allEmployeeRows.Clear();
+                EmployeeDataGridView.Rows.Clear();
+
+                foreach (var emp in employees)
+                {
+                    var row = new object[] { emp.EmployeeId, emp.FullName, emp.Position };
+                    allEmployeeRows.Add(row);
+                    EmployeeDataGridView.Rows.Add(row);
+                }
+
+                // Update stat card
+                if (label6 != null)
+                    label6.Text = employees.Count.ToString();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load employees: {ex.Message}");
+            }
         }
 
         // ─── MERGED ATTENDANCE + SHIFT GRID ─────────────────────────────────
@@ -172,7 +241,7 @@ namespace Coreclock
         {
             AttendanceLogsDataGridView.Columns.Clear();
 
-            var colID = new DataGridViewTextBoxColumn { Name = "EmpID", HeaderText = "ID", Width = 45 };
+            var colID = new DataGridViewTextBoxColumn { Name = "EmpID", HeaderText = "ID", Width = 110 };
             var colName = new DataGridViewTextBoxColumn { Name = "Name", HeaderText = "Name", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill };
             var colShift = new DataGridViewTextBoxColumn { Name = "Shift", HeaderText = "Shift", Width = 85 };
             var colIn = new DataGridViewTextBoxColumn { Name = "TimeIn", HeaderText = "Time In", Width = 78 };
@@ -195,16 +264,117 @@ namespace Coreclock
             AttendanceLogsDataGridView.CellPainting += AttendanceCellPainting;
             AttendanceLogsDataGridView.ScrollBars = ScrollBars.None;
 
-            AttendanceLogsDataGridView.Rows.Add("001", "Kevin Kikuchi", "Morning", "08:00 AM", "05:00 PM", "9h 00m", "Present");
-            AttendanceLogsDataGridView.Rows.Add("002", "Remixon Ipanag", "Morning", "08:15 AM", "05:10 PM", "8h 55m", "Late");
-            AttendanceLogsDataGridView.Rows.Add("003", "Rojamin Merari Pantrollia", "Morning", "—", "—", "—", "Absent");
-            AttendanceLogsDataGridView.Rows.Add("004", "Wara Gud", "Night", "10:00 PM", "—", "—", "On Shift");
-            AttendanceLogsDataGridView.Rows.Add("005", "John Cena", "Morning", "08:02 AM", "05:00 PM", "8h 58m", "Present");
-            AttendanceLogsDataGridView.Rows.Add("006", "Si miss gamay", "Night", "10:00 PM", "—", "—", "On Shift");
-            AttendanceLogsDataGridView.Rows.Add("007", "Jong Idol Super", "Afternoon", "02:00 PM", "—", "—", "On Shift");
-            AttendanceLogsDataGridView.Rows.Add("008", "Si Bayong", "Morning", "08:00 AM", "05:00 PM", "9h 00m", "Present");
-            AttendanceLogsDataGridView.Rows.Add("009", "Mia Khalifa", "Afternoon", "—", "—", "—", "Off Shift");
-            AttendanceLogsDataGridView.Rows.Add("010", "Johnny Sins", "Night", "—", "—", "—", "Off Shift");
+        }
+
+        // ─── LOAD TODAY'S SHIFT ──────────────────────────────────────────────
+        private async Task LoadTodaysShiftAsync()
+        {
+            try
+            {
+                string todayDay = DateTime.Now.ToString("ddd");
+                string today = DateTime.Now.ToString("yyyy-MM-dd");
+
+                var employees = await SupabaseHelper.Instance.FetchAllEmployeesAsync();
+                var logs = await SupabaseHelper.Instance.FetchAllAttendanceLogsAsync(today);
+
+                AttendanceLogsDataGridView.Rows.Clear();
+
+                foreach (var emp in employees)
+                {
+                    if (!IsWorkingToday(emp.WorkDays, todayDay)) continue;
+
+                    var log = logs.FirstOrDefault(l => l.UserId == emp.Id);
+
+                    string timeIn    = string.IsNullOrEmpty(log?.TimeIn)     ? "—" : log.TimeIn;
+                    string timeOut   = string.IsNullOrEmpty(log?.TimeOut)    ? "—" : log.TimeOut;
+                    string hours     = string.IsNullOrEmpty(log?.TotalHours) ? "—" : log.TotalHours;
+                    string status    = log == null ? DetermineStatus(emp) : log.Status;
+
+                    AttendanceLogsDataGridView.Rows.Add(
+                        emp.EmployeeId,
+                        emp.FullName,
+                        emp.ShiftType,
+                        timeIn,
+                        timeOut,
+                        hours,
+                        status
+                    );
+                }
+
+                int presentCount = 0;
+                int absentCount = 0;
+                int lateCount = 0;
+
+                foreach (DataGridViewRow row in AttendanceLogsDataGridView.Rows)
+                {
+                    string status = row.Cells["Status"].Value?.ToString() ?? "";
+                    if (status == "Present")
+                        presentCount++;
+                    else if (status == "Late")
+                        lateCount++;
+                    else if (status == "Absent")
+                        absentCount++;
+                }
+
+                label4.Text = presentCount.ToString();
+                label8.Text = absentCount.ToString();
+                label10.Text = lateCount.ToString();
+
+                var reports = await SupabaseHelper.Instance.FetchAllReportsAsync();
+                int reportsToday = reports.Count(r =>
+                    DateTimeOffset.TryParse(r.CreatedAt, out var d) &&
+                    d.ToLocalTime().Date == DateTime.Today);
+                label14.Text = reportsToday.ToString();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ LoadTodaysShift: {ex.Message}");
+            }
+        }
+
+        private bool IsWorkingToday(string workDays, string todayDay)
+        {
+            if (string.IsNullOrEmpty(workDays)) return true;
+
+            var days = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+            int todayIndex = Array.IndexOf(days, todayDay);
+            if (todayIndex < 0) return false;
+
+            if (workDays.Contains("-"))
+            {
+                var parts = workDays.Split('-');
+                if (parts.Length == 2)
+                {
+                    int start = Array.IndexOf(days, parts[0].Trim());
+                    int end   = Array.IndexOf(days, parts[1].Trim());
+                    if (start >= 0 && end >= 0)
+                    {
+                        if (start <= end)
+                            return todayIndex >= start && todayIndex <= end;
+                        else
+                            return todayIndex >= start || todayIndex <= end;
+                    }
+                }
+            }
+
+            return workDays.Contains(todayDay, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private string DetermineStatus(UserProfile emp)
+        {
+            if (!DateTime.TryParse(emp.ShiftTimeIn, out var shiftStart))
+                return "Working Soon";
+
+            var now = DateTime.Now.TimeOfDay;
+            var shiftStartTime = shiftStart.TimeOfDay;
+            var cutoff = shiftStartTime.Add(TimeSpan.FromHours(1));
+
+            if (now < shiftStartTime)
+                return "Working Soon";
+            else if (now >= shiftStartTime && now < cutoff)
+                return "Working Soon";
+            else
+                return "Absent";
         }
 
         // ─── EMPLOYEE SEARCH BAR ─────────────────────────────────────────────
@@ -332,7 +502,9 @@ namespace Coreclock
                     "Late" => Color.FromArgb(255, 180, 0),
                     "Absent" => Color.FromArgb(220, 60, 60),
                     "On Shift" => Color.FromArgb(100, 180, 255),
+                    "Offline" => Color.FromArgb(220, 60, 60),
                     "Off Shift" => Color.FromArgb(120, 120, 120),
+                    "Working Soon" => Color.FromArgb(255, 210, 80),
                     _ => Color.White
                 };
                 e.Paint(e.CellBounds, DataGridViewPaintParts.Background | DataGridViewPaintParts.Border);
@@ -435,8 +607,10 @@ namespace Coreclock
 
             dgv.MouseWheel += (object? s, MouseEventArgs e) =>
             {
+                if (dgv.RowCount == 0) return;
+                int current = dgv.FirstDisplayedScrollingRowIndex;
                 int delta = e.Delta > 0 ? -3 : 3;
-                int newFirst = Math.Max(0, Math.Min(dgv.RowCount - 1, dgv.FirstDisplayedScrollingRowIndex + delta));
+                int newFirst = Math.Max(0, Math.Min(dgv.RowCount - 1, current + delta));
                 dgv.FirstDisplayedScrollingRowIndex = newFirst;
                 UpdateThumb();
             };
@@ -532,7 +706,10 @@ namespace Coreclock
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
-            if (clockTimer != null) { clockTimer.Stop(); clockTimer.Dispose(); }
+            clockTimer?.Stop();
+            clockTimer?.Dispose();
+            _midnightTimer?.Stop();
+            _midnightTimer?.Dispose();
         }
 
         // ─── STUBS ───────────────────────────────────────────────────────────
@@ -554,11 +731,26 @@ namespace Coreclock
 
             SetActiveButton(_activeBtn);
         }
-        // ─── PROFILE PANEL ────────────────────────────────────────────────────
+          // ─── PROFILE PANEL ────────────────────────────────────────────────────
         private void StyleProfilePanel()
         {
             ProfilePanel.Controls.Clear();
             ProfilePanel.BackColor = Color.FromArgb(30, 30, 30);
+
+            // ── Get user data from Supabase ──
+            var profile = SupabaseHelper.Instance.CurrentUserProfile;
+
+            // Get initials from full name
+            var nameParts = (profile?.FullName ?? "??").Split(' ');
+            var initials = nameParts.Length >= 2
+                ? $"{nameParts[0][0]}{nameParts[1][0]}"
+                : nameParts[0].Substring(0, Math.Min(2, nameParts[0].Length));
+            initials = initials.ToUpper();
+
+            string fullName = profile?.FullName ?? "Unknown";
+            string employeeId = profile?.EmployeeId ?? "000000";
+            string position = profile?.Role == "admin" ? "Admin" : (profile?.Position ?? "Agent");
+            string contactNumber = profile?.ContactNumber ?? "";
 
             // ── Avatar PictureBox ──
             PictureBox avatar = new PictureBox();
@@ -572,7 +764,7 @@ namespace Coreclock
 
             // Initials label shown when no photo uploaded
             Label lblInitials = new Label();
-            lblInitials.Text = "JI"; // replace with real initials later
+            lblInitials.Text = initials;
             lblInitials.Font = new Font("Segoe UI", 16f, FontStyle.Bold);
             lblInitials.ForeColor = Color.FromArgb(200, 168, 75);
             lblInitials.BackColor = Color.Transparent;
@@ -617,7 +809,7 @@ namespace Coreclock
 
             // ── Name label ──
             Label lblName = new Label();
-            lblName.Text = "Jong Idol"; // replace with real data later
+            lblName.Text = fullName;
             lblName.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             lblName.ForeColor = Color.White;
             lblName.BackColor = Color.Transparent;
@@ -629,7 +821,7 @@ namespace Coreclock
 
             // ── Employee ID label ──
             Label lblId = new Label();
-            lblId.Text = "EMP-001"; // replace with real data later
+            lblId.Text = employeeId;
             lblId.Font = new Font("Segoe UI", 8f);
             lblId.ForeColor = Color.FromArgb(140, 140, 140);
             lblId.BackColor = Color.Transparent;
@@ -641,7 +833,7 @@ namespace Coreclock
 
             // ── Position badge ──
             Label lblPos = new Label();
-            lblPos.Text = "Software Developer"; // replace with real data later
+            lblPos.Text = position;
             lblPos.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
             lblPos.ForeColor = Color.FromArgb(200, 168, 75);
             lblPos.BackColor = Color.FromArgb(42, 35, 10);
@@ -653,11 +845,23 @@ namespace Coreclock
             IntPtr posRgn = CreateRoundRectRgn(0, 0, lblPos.Width, lblPos.Height, 20, 20);
             lblPos.Region = System.Drawing.Region.FromHrgn(posRgn);
 
+            // ── Contact Number label ──
+            Label lblContact = new Label();
+            lblContact.Text = "📞 " + (string.IsNullOrEmpty(contactNumber) ? "N/A" : contactNumber);
+            lblContact.Font = new Font("Segoe UI", 8f);
+            lblContact.ForeColor = Color.FromArgb(170, 170, 170);
+            lblContact.BackColor = Color.Transparent;
+            lblContact.AutoSize = false;
+            lblContact.Width = ProfilePanel.Width - 10;
+            lblContact.Height = 16;
+            lblContact.Location = new Point(5, lblPos.Bottom + 4);
+            lblContact.TextAlign = ContentAlignment.MiddleCenter;
+
             // ── Divider ──
             Panel divider = new Panel();
             divider.BackColor = Color.FromArgb(45, 45, 45);
             divider.Size = new Size(ProfilePanel.Width - 24, 1);
-            divider.Location = new Point(12, lblPos.Bottom + 6);
+            divider.Location = new Point(12, lblContact.Bottom + 6);
 
             // ── Status dot ──
             Panel statusDot = new Panel();
@@ -681,6 +885,7 @@ namespace Coreclock
             ProfilePanel.Controls.Add(lblName);
             ProfilePanel.Controls.Add(lblId);
             ProfilePanel.Controls.Add(lblPos);
+            ProfilePanel.Controls.Add(lblContact);
             ProfilePanel.Controls.Add(divider);
             ProfilePanel.Controls.Add(statusDot);
             ProfilePanel.Controls.Add(lblStatus);

@@ -1,4 +1,4 @@
-﻿namespace Coreclock
+namespace Coreclock
 {
     partial class EmployeeDashboard
     {
@@ -117,9 +117,9 @@
             // ProfilePanel
             // 
             ProfilePanel.BackColor = Color.FromArgb(20, 20, 20);
-            ProfilePanel.Location = new Point(15, 359);
+            ProfilePanel.Location = new Point(15, 343);
             ProfilePanel.Name = "ProfilePanel";
-            ProfilePanel.Size = new Size(188, 200);
+            ProfilePanel.Size = new Size(188, 207);
             ProfilePanel.TabIndex = 9;
             ProfilePanel.Paint += panel2_Paint_2;
             // 
@@ -252,7 +252,7 @@
             // 
             label2.AutoSize = true;
             label2.ForeColor = Color.Gray;
-            label2.Location = new Point(435, 2);
+            label2.Location = new Point(418, 2);
             label2.Name = "label2";
             label2.Size = new Size(59, 15);
             label2.TabIndex = 7;
@@ -281,6 +281,7 @@
             TimeOutBtn.TabIndex = 4;
             TimeOutBtn.Text = "Time Out";
             TimeOutBtn.UseVisualStyleBackColor = true;
+            TimeOutBtn.Click += TimeOutBtn_Click;
             // 
             // TimeInBtn
             // 
@@ -293,7 +294,7 @@
             TimeInBtn.TabIndex = 3;
             TimeInBtn.Text = "Time In";
             TimeInBtn.UseVisualStyleBackColor = true;
-            TimeInBtn.Click += button1_Click;
+            TimeInBtn.Click += TimeInBtn_Click;
             // 
             // CurrentTime
             // 

@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text;
@@ -40,21 +41,8 @@ namespace Coreclock
         private readonly Color BorderCol = Color.FromArgb(55, 55, 55);
 
         // ─── REPORT DATA ──────────────────────────────────────────────────────
-        private class ReportEntry
-        {
-            public string ID, Name, ReportTitle, Period, Message;
-            public bool IsRead;
-        }
-
-        private List<ReportEntry> _reports = new List<ReportEntry>
-        {
-            new ReportEntry { ID="EMP-001", Name="Kevin Kikuchi",  ReportTitle="Leave Request",        Period="May 1, 2026",  Message="Good day, Admin. I would like to request a leave of absence on May 16, 2026 for personal reasons. I have already coordinated with my team to ensure my tasks are covered. Thank you.", IsRead=false },
-            new ReportEntry { ID="EMP-002", Name="Rojamin Merari Pantrollia",    ReportTitle="Overtime Report",      Period="May 2, 2026",  Message="Hi Admin, I am submitting my overtime report for this week. I rendered 3 extra hours on Monday and 2 extra hours on Wednesday to meet the project deadline. Kindly approve. Thank you.", IsRead=false },
-            new ReportEntry { ID="EMP-003", Name="Remixon Ipanag",    ReportTitle="Incident Report",      Period="May 2, 2026",  Message="Admin, I am reporting an incident that occurred in the office on May 2. The air conditioning unit in the Finance department malfunctioned and caused a minor water leak. Maintenance has been notified.", IsRead=false },
-            
-        };
-
-        private List<ReportEntry> _filtered;
+        private List<SupabaseHelper.ReportModel> _supaReports = new List<SupabaseHelper.ReportModel>();
+        private List<SupabaseHelper.ReportModel> _filtered;
         private int _selectedIndex = 0;
 
         // ─── CONTENT CONTROLS ─────────────────────────────────────────────────
@@ -73,15 +61,28 @@ namespace Coreclock
             StartClock();
             StyleDateTimePicker();
             SetActiveButton(ReportBtn);
-            _filtered = new List<ReportEntry>(_reports);
+            _filtered = new List<SupabaseHelper.ReportModel>();
             BuildReportsHub();
             StyleProfilePanel();
+
+            this.Load += async (s, e) => await LoadReportsFromSupabase();
         }
         // ─── PROFILE PANEL ────────────────────────────────────────────────────
         private void StyleProfilePanel()
         {
             ProfilePanel.Controls.Clear();
             ProfilePanel.BackColor = Color.FromArgb(30, 30, 30);
+
+            var profile = SupabaseHelper.Instance.CurrentUserProfile;
+            var nameParts = (profile?.FullName ?? "??").Split(' ');
+            var initials = nameParts.Length >= 2
+                ? $"{nameParts[0][0]}{nameParts[1][0]}"
+                : nameParts[0].Substring(0, Math.Min(2, nameParts[0].Length));
+            initials = initials.ToUpper();
+            string fullName = profile?.FullName ?? "Unknown";
+            string employeeId = profile?.EmployeeId ?? "000000";
+            string position = profile?.Role == "admin" ? "Admin" : (profile?.Position ?? "Agent");
+            string contactNumber = profile?.ContactNumber ?? "";
 
             // ── Avatar PictureBox ──
             PictureBox avatar = new PictureBox();
@@ -95,7 +96,7 @@ namespace Coreclock
 
             // Initials label shown when no photo uploaded
             Label lblInitials = new Label();
-            lblInitials.Text = "JI"; // replace with real initials later
+            lblInitials.Text = initials;
             lblInitials.Font = new Font("Segoe UI", 16f, FontStyle.Bold);
             lblInitials.ForeColor = Color.FromArgb(200, 168, 75);
             lblInitials.BackColor = Color.Transparent;
@@ -140,7 +141,7 @@ namespace Coreclock
 
             // ── Name label ──
             Label lblName = new Label();
-            lblName.Text = "Jong Idol"; // replace with real data later
+            lblName.Text = fullName;
             lblName.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             lblName.ForeColor = Color.White;
             lblName.BackColor = Color.Transparent;
@@ -152,7 +153,7 @@ namespace Coreclock
 
             // ── Employee ID label ──
             Label lblId = new Label();
-            lblId.Text = "EMP-001"; // replace with real data later
+            lblId.Text = employeeId;
             lblId.Font = new Font("Segoe UI", 8f);
             lblId.ForeColor = Color.FromArgb(140, 140, 140);
             lblId.BackColor = Color.Transparent;
@@ -164,7 +165,7 @@ namespace Coreclock
 
             // ── Position badge ──
             Label lblPos = new Label();
-            lblPos.Text = "Software Developer"; // replace with real data later
+            lblPos.Text = position;
             lblPos.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
             lblPos.ForeColor = Color.FromArgb(200, 168, 75);
             lblPos.BackColor = Color.FromArgb(42, 35, 10);
@@ -176,11 +177,21 @@ namespace Coreclock
             IntPtr posRgn = CreateRoundRectRgn(0, 0, lblPos.Width, lblPos.Height, 20, 20);
             lblPos.Region = System.Drawing.Region.FromHrgn(posRgn);
 
-            // ── Divider ──
+            Label lblContact = new Label();
+            lblContact.Text = "📞 " + (string.IsNullOrEmpty(contactNumber) ? "N/A" : contactNumber);
+            lblContact.Font = new Font("Segoe UI", 8f);
+            lblContact.ForeColor = Color.FromArgb(170, 170, 170);
+            lblContact.BackColor = Color.Transparent;
+            lblContact.AutoSize = false;
+            lblContact.Width = ProfilePanel.Width - 10;
+            lblContact.Height = 16;
+            lblContact.Location = new Point(5, lblPos.Bottom + 4);
+            lblContact.TextAlign = ContentAlignment.MiddleCenter;
+
             Panel divider = new Panel();
             divider.BackColor = Color.FromArgb(45, 45, 45);
             divider.Size = new Size(ProfilePanel.Width - 24, 1);
-            divider.Location = new Point(12, lblPos.Bottom + 6);
+            divider.Location = new Point(12, lblContact.Bottom + 6);
 
             // ── Status dot ──
             Panel statusDot = new Panel();
@@ -204,6 +215,7 @@ namespace Coreclock
             ProfilePanel.Controls.Add(lblName);
             ProfilePanel.Controls.Add(lblId);
             ProfilePanel.Controls.Add(lblPos);
+            ProfilePanel.Controls.Add(lblContact);
             ProfilePanel.Controls.Add(divider);
             ProfilePanel.Controls.Add(statusDot);
             ProfilePanel.Controls.Add(lblStatus);
@@ -241,7 +253,6 @@ namespace Coreclock
 
             BuildLeftPanel(parent, splitY, availW, availH, sidebarRight);
             BuildRightPanel(parent, splitY, availW, availH, sidebarRight);
-            LoadList();
         }
 
         // ─── LEFT PANEL ───────────────────────────────────────────────────────
@@ -474,18 +485,31 @@ namespace Coreclock
             actCard.Controls.Add(btnPdf);
         }
 
+        // ─── LOAD REPORTS FROM SUPABASE ──────────────────────────────────────
+        private async Task LoadReportsFromSupabase()
+        {
+            _supaReports = await SupabaseHelper.Instance.FetchAllReportsAsync();
+            _filtered = new List<SupabaseHelper.ReportModel>(_supaReports);
+
+            dgvList.Rows.Clear();
+            foreach (var r in _filtered)
+                dgvList.Rows.Add(r.EmployeeId, r.ReportType);
+
+            if (dgvList.Rows.Count > 0)
+                dgvList.Rows[0].Selected = true;
+        }
+
         // ─── SHOW DETAIL ──────────────────────────────────────────────────────
         private void ShowDetail()
         {
             if (_selectedIndex < 0 || _selectedIndex >= _filtered.Count) return;
             var r = _filtered[_selectedIndex];
 
-            lblMsgTitle.Text = r.ReportTitle;
-            lblMsgFrom.Text = $"From:  {r.Name}  ({r.ID})";
-            lblMsgDate.Text = $"Date:  {r.Period}";
+            lblMsgTitle.Text = r.ReportType;
+            lblMsgFrom.Text = $"From:  {r.FullName}  ({r.EmployeeId})";
+            lblMsgDate.Text = $"Date:  {(DateTimeOffset.TryParse(r.CreatedAt, out var d) ? d.ToLocalTime().ToString("MMMM d, yyyy") : r.CreatedAt)}";
             lblMsgBody.Text = r.Message;
 
-            // Read badge
             if (r.IsRead)
             {
                 lblMsgReadBadge.Text = "✔ Read";
@@ -512,75 +536,75 @@ namespace Coreclock
         }
 
         // ─── MARK DONE ───────────────────────────────────────────────────────
-        private void MarkCurrentDone()
+        private async void MarkCurrentDone()
         {
             if (_selectedIndex < 0 || _selectedIndex >= _filtered.Count) return;
-            _filtered[_selectedIndex].IsRead = true;
+            var r = _filtered[_selectedIndex];
+            await SupabaseHelper.Instance.MarkReportReadAsync(r.Id);
+            r.IsRead = true;
             ShowDetail();
             dgvList.InvalidateRow(_selectedIndex);
         }
 
-        // ─── LIST HELPERS ─────────────────────────────────────────────────────
-        private void LoadList()
-        {
-            dgvList.Rows.Clear();
-            foreach (var r in _filtered)
-                dgvList.Rows.Add(r.ID, r.ReportTitle);
-            if (dgvList.Rows.Count > 0)
-                dgvList.Rows[0].Selected = true;
-        }
-
-        private void FilterList()
+        // ─── FILTER ───────────────────────────────────────────────────────────
+        private async void FilterList()
         {
             string q = txtSearch.Text.Trim().ToLower();
             if (q == "search by name, id, title...") q = "";
-            _filtered = string.IsNullOrEmpty(q)
-                ? new List<ReportEntry>(_reports)
-                : _reports.FindAll(r =>
-                    r.Name.ToLower().Contains(q) ||
-                    r.ID.ToLower().Contains(q) ||
-                    r.ReportTitle.ToLower().Contains(q));
-            _selectedIndex = 0;
-            LoadList();
+
+            await LoadReportsFromSupabase();
+
+            if (!string.IsNullOrEmpty(q))
+            {
+                _filtered = _filtered
+                    .Where(r => r.FullName.ToLower().Contains(q) ||
+                                r.EmployeeId.ToLower().Contains(q) ||
+                                r.ReportType.ToLower().Contains(q))
+                    .ToList();
+            }
+
+            dgvList.Rows.Clear();
+            foreach (var r in _filtered)
+                dgvList.Rows.Add(r.EmployeeId, r.ReportType);
         }
 
-        private void DeleteSelected()
+        private async void DeleteSelected()
         {
             if (dgvList.SelectedRows.Count == 0) return;
-            var result = MessageBox.Show($"Delete {dgvList.SelectedRows.Count} selected report(s)?", "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            var result = MessageBox.Show($"Delete {dgvList.SelectedRows.Count} selected report(s)?",
+                "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (result != DialogResult.Yes) return;
 
-            var toRemove = new List<int>();
-            foreach (DataGridViewRow row in dgvList.SelectedRows)
-                toRemove.Add(row.Index);
-            toRemove.Sort();
-            toRemove.Reverse();
-            foreach (int idx in toRemove)
+            var indices = dgvList.SelectedRows.Cast<DataGridViewRow>()
+                .Select(r => r.Index).OrderByDescending(i => i).ToList();
+
+            foreach (int idx in indices)
             {
-                if (idx < _filtered.Count)
+                if (idx < _supaReports.Count)
                 {
-                    var entry = _filtered[idx];
-                    _reports.Remove(entry);
-                    _filtered.Remove(entry);
+                    await SupabaseHelper.Instance.DeleteReportAsync(_supaReports[idx].Id);
+                    _supaReports.RemoveAt(idx);
                 }
             }
-            _selectedIndex = 0;
-            LoadList();
+
+            await LoadReportsFromSupabase();
             pnlDetail.Visible = false;
             lblNoSel.Visible = true;
         }
 
-        private void DeleteAll()
+        private async void DeleteAll()
         {
-            if (_filtered.Count == 0) return;
-            var result = MessageBox.Show("Delete ALL reports?", "Confirm Delete All", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (_supaReports.Count == 0) return;
+            var result = MessageBox.Show("Delete ALL reports?", "Confirm Delete All",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (result != DialogResult.Yes) return;
 
-            foreach (var entry in new List<ReportEntry>(_filtered))
-                _reports.Remove(entry);
+            foreach (var r in _supaReports)
+                await SupabaseHelper.Instance.DeleteReportAsync(r.Id);
+
+            _supaReports.Clear();
             _filtered.Clear();
-            _selectedIndex = 0;
-            LoadList();
+            dgvList.Rows.Clear();
             pnlDetail.Visible = false;
             lblNoSel.Visible = true;
         }

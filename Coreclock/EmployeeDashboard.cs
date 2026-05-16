@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -27,12 +28,161 @@ namespace Coreclock
         public EmployeeDashboard()
         {
             InitializeComponent();
+            CheckSession();
             ApplyRoundedCorners();
             StartClock();
             StyleDateTimePicker();
             StyleDataGridView();
             WrapGridWithRoundedPanel(LogsDataGridView, 20);
             StyleProfilePanel(); // ← profile panel
+
+            // Load schedule and logs from Supabase after form is shown
+            this.Load += async (s, e) =>
+            {
+                await LoadMySchedule();
+                await LoadMyLogs();
+            };
+        }
+
+        // ─── LOAD SCHEDULE FROM SUPABASE ────────────────────────────────────
+        private async Task LoadMySchedule()
+        {
+            try
+            {
+                var myProfile = await SupabaseHelper.Instance.RefreshMyProfileAsync();
+                if (myProfile == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("❌ Profile is NULL");
+                    return;
+                }
+
+                // DEBUG — tan-awon sa Output window
+                System.Diagnostics.Debug.WriteLine($"✅ WorkDays: {myProfile.WorkDays}");
+                System.Diagnostics.Debug.WriteLine($"✅ ShiftType: {myProfile.ShiftType}");
+                System.Diagnostics.Debug.WriteLine($"✅ TimeIn: {myProfile.ShiftTimeIn}");
+                System.Diagnostics.Debug.WriteLine($"✅ TimeOut: {myProfile.ShiftTimeOut}");
+
+                ShiftScheduleLbl.Text = string.IsNullOrEmpty(myProfile.WorkDays) ? "Mon-Fri" : myProfile.WorkDays;
+                ShiftInBtn.Text  = " Time In: "  + (string.IsNullOrEmpty(myProfile.ShiftTimeIn)  ? "08:00 AM" : myProfile.ShiftTimeIn);
+                ShiftOutBtn.Text = "Time Out: " + (string.IsNullOrEmpty(myProfile.ShiftTimeOut) ? "05:00 PM" : myProfile.ShiftTimeOut);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ Error: {ex.Message}");
+            }
+        }
+
+        // ─── LOAD MY LOGS ────────────────────────────────────────────────────────────
+        private async Task LoadMyLogs()
+        {
+            var profile = SupabaseHelper.Instance.CurrentUserProfile;
+            if (profile == null) return;
+
+            var logs = await SupabaseHelper.Instance.FetchMyLogsAsync(profile.Id);
+
+            LogsDataGridView.Rows.Clear();
+
+            string today = DateTime.Now.ToString("yyyy-MM-dd");
+            var todayLog = logs.FirstOrDefault(l => l.Date == today);
+
+            if (todayLog != null)
+            {
+                label6.Text        = string.IsNullOrEmpty(todayLog.TimeIn) ? "—" : todayLog.TimeIn;
+                label7.Text        = string.IsNullOrEmpty(todayLog.TimeOut) ? "Not Yet" : todayLog.TimeOut;
+                HoursTodayLbl.Text = string.IsNullOrEmpty(todayLog.TotalHours) ? "—" : todayLog.TotalHours;
+                StatusLbl.Text     = todayLog.Status;
+
+                StatusLbl.ForeColor = todayLog.Status switch
+                {
+                    "Present" => Color.FromArgb(80, 200, 80),
+                    "Late"    => Color.FromArgb(255, 180, 0),
+                    "Absent"  => Color.FromArgb(220, 60, 60),
+                    _         => Color.White
+                };
+            }
+
+            // Get registration date
+            DateTime regDate = DateTime.Today;
+            if (DateTimeOffset.TryParse(profile.CreatedAt, out var parsedReg))
+                regDate = parsedReg.ToLocalTime().Date;
+
+            // Build this week's dates (Mon to Sun)
+            DateTime weekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + (int)DayOfWeek.Monday);
+            string workDays = profile?.WorkDays ?? "Mon-Fri";
+
+            for (int i = 0; i < 7; i++)
+            {
+                DateTime day = weekStart.AddDays(i);
+                string dayAbbr = day.ToString("ddd");
+                string dateDisplay = day.ToString("MM/dd/yyyy");
+
+                bool isWorkDay = IsWorkingDay(workDays, dayAbbr);
+
+                if (!isWorkDay)
+                {
+                    LogsDataGridView.Rows.Add(dateDisplay, "—", "—", "—", "Day Off");
+                    continue;
+                }
+
+                string dateStr = day.ToString("yyyy-MM-dd");
+                var log = logs.FirstOrDefault(l => l.Date == dateStr);
+
+                if (log != null)
+                {
+                    LogsDataGridView.Rows.Add(
+                        dateDisplay,
+                        string.IsNullOrEmpty(log.TimeIn)     ? "—" : log.TimeIn,
+                        string.IsNullOrEmpty(log.TimeOut)    ? "—" : log.TimeOut,
+                        string.IsNullOrEmpty(log.TotalHours) ? "—" : log.TotalHours,
+                        log.Status
+                    );
+                }
+                else if (day.Date < DateTime.Today)
+                {
+                    if (day.Date >= regDate)
+                        LogsDataGridView.Rows.Add(dateDisplay, "—", "—", "—", "Absent");
+                }
+                else if (day.Date == DateTime.Today)
+                {
+                    LogsDataGridView.Rows.Add(dateDisplay, "—", "—", "—", "—");
+                }
+            }
+        }
+
+        private bool IsWorkingDay(string workDays, string dayAbbr)
+        {
+            if (string.IsNullOrEmpty(workDays)) return true;
+            var days = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+            int todayIndex = Array.IndexOf(days, dayAbbr);
+            if (todayIndex < 0) return false;
+
+            if (workDays.Contains("-"))
+            {
+                var parts = workDays.Split('-');
+                if (parts.Length == 2)
+                {
+                    int start = Array.IndexOf(days, parts[0].Trim());
+                    int end   = Array.IndexOf(days, parts[1].Trim());
+                    if (start >= 0 && end >= 0)
+                    {
+                        if (start <= end) return todayIndex >= start && todayIndex <= end;
+                        else return todayIndex >= start || todayIndex <= end;
+                    }
+                }
+            }
+            return workDays.Split(',').Select(d => d.Trim())
+                           .Contains(dayAbbr, StringComparer.OrdinalIgnoreCase);
+        }
+
+        private void CheckSession()
+        {
+            var session = SupabaseHelper.Instance.CurrentSession;
+            if (session == null)
+            {
+                LoginFrm login = new LoginFrm();
+                login.Show();
+                this.Hide();
+            }
         }
 
         // ─── PROFILE PANEL ────────────────────────────────────────────────────
@@ -40,6 +190,20 @@ namespace Coreclock
         {
             ProfilePanel.Controls.Clear();
             ProfilePanel.BackColor = Color.FromArgb(30, 30, 30);
+
+            // ── Get user data from Supabase ──
+            var profile = SupabaseHelper.Instance.CurrentUserProfile;
+
+            // Get initials from full name
+            var nameParts = (profile?.FullName ?? "??").Split(' ');
+            var initials = nameParts.Length >= 2
+                ? $"{nameParts[0][0]}{nameParts[1][0]}"
+                : nameParts[0].Substring(0, Math.Min(2, nameParts[0].Length));
+            initials = initials.ToUpper();
+
+            string fullName = profile?.FullName ?? "Unknown";
+            string employeeId = profile?.EmployeeId ?? "000000";
+            string position = profile?.Position ?? "Agent";
 
             // ── Avatar PictureBox ──
             PictureBox avatar = new PictureBox();
@@ -53,7 +217,7 @@ namespace Coreclock
 
             // Initials label shown when no photo uploaded
             Label lblInitials = new Label();
-            lblInitials.Text = "JI"; // replace with real initials later
+            lblInitials.Text = initials;
             lblInitials.Font = new Font("Segoe UI", 16f, FontStyle.Bold);
             lblInitials.ForeColor = Color.FromArgb(200, 168, 75);
             lblInitials.BackColor = Color.Transparent;
@@ -98,7 +262,7 @@ namespace Coreclock
 
             // ── Name label ──
             Label lblName = new Label();
-            lblName.Text = "Jong Idol"; // replace with real data later
+            lblName.Text = fullName;
             lblName.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             lblName.ForeColor = Color.White;
             lblName.BackColor = Color.Transparent;
@@ -110,7 +274,7 @@ namespace Coreclock
 
             // ── Employee ID label ──
             Label lblId = new Label();
-            lblId.Text = "EMP-001"; // replace with real data later
+            lblId.Text = employeeId;
             lblId.Font = new Font("Segoe UI", 8f);
             lblId.ForeColor = Color.FromArgb(140, 140, 140);
             lblId.BackColor = Color.Transparent;
@@ -122,7 +286,7 @@ namespace Coreclock
 
             // ── Position badge ──
             Label lblPos = new Label();
-            lblPos.Text = "Software Developer"; // replace with real data later
+            lblPos.Text = position;
             lblPos.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
             lblPos.ForeColor = Color.FromArgb(200, 168, 75);
             lblPos.BackColor = Color.FromArgb(42, 35, 10);
@@ -134,11 +298,24 @@ namespace Coreclock
             IntPtr posRgn = CreateRoundRectRgn(0, 0, lblPos.Width, lblPos.Height, 20, 20);
             lblPos.Region = System.Drawing.Region.FromHrgn(posRgn);
 
+            // ── Contact Number label ──
+            string contactNumber = profile?.ContactNumber ?? "";
+            Label lblContact = new Label();
+            lblContact.Text = "📞 " + (string.IsNullOrEmpty(contactNumber) ? "N/A" : contactNumber);
+            lblContact.Font = new Font("Segoe UI", 8f);
+            lblContact.ForeColor = Color.FromArgb(170, 170, 170);
+            lblContact.BackColor = Color.Transparent;
+            lblContact.AutoSize = false;
+            lblContact.Width = ProfilePanel.Width - 10;
+            lblContact.Height = 16;
+            lblContact.Location = new Point(5, lblPos.Bottom + 4);
+            lblContact.TextAlign = ContentAlignment.MiddleCenter;
+
             // ── Divider ──
             Panel divider = new Panel();
             divider.BackColor = Color.FromArgb(45, 45, 45);
             divider.Size = new Size(ProfilePanel.Width - 24, 1);
-            divider.Location = new Point(12, lblPos.Bottom + 6);
+            divider.Location = new Point(12, lblContact.Bottom + 6);
 
             // ── Status dot ──
             Panel statusDot = new Panel();
@@ -162,6 +339,7 @@ namespace Coreclock
             ProfilePanel.Controls.Add(lblName);
             ProfilePanel.Controls.Add(lblId);
             ProfilePanel.Controls.Add(lblPos);
+            ProfilePanel.Controls.Add(lblContact);
             ProfilePanel.Controls.Add(divider);
             ProfilePanel.Controls.Add(statusDot);
             ProfilePanel.Controls.Add(lblStatus);
@@ -281,10 +459,7 @@ namespace Coreclock
 
             LogsDataGridView.CellPainting += LogsDataGridView_CellPainting;
 
-            // Sample data — remove when loading real data
-            LogsDataGridView.Rows.Add("05/02/2026", "08:00 AM", "05:00 PM", "9h 00m", "Present");
-            LogsDataGridView.Rows.Add("05/01/2026", "08:15 AM", "05:10 PM", "8h 55m", "Present");
-            LogsDataGridView.Rows.Add("04/30/2026", "—", "—", "—", "Absent");
+
         }
 
         private void LogsDataGridView_CellPainting(object? sender, DataGridViewCellPaintingEventArgs e)
@@ -297,6 +472,8 @@ namespace Coreclock
                     "Present" => Color.FromArgb(80, 200, 80),
                     "Absent" => Color.FromArgb(220, 60, 60),
                     "Late" => Color.FromArgb(255, 180, 0),
+                    "Offline" => Color.FromArgb(220, 60, 60),
+                    "Day Off" => Color.FromArgb(100, 100, 255),
                     _ => Color.White
                 };
 
@@ -436,7 +613,61 @@ namespace Coreclock
             LogOutBtn.ForeColor = Color.White;
         }
 
-        private void button1_Click(object sender, EventArgs e) { }
+        // ─── TIME IN BUTTON ──────────────────────────────────────────────────────────
+        private async void TimeInBtn_Click(object sender, EventArgs e)
+        {
+            var profile = SupabaseHelper.Instance.CurrentUserProfile;
+            if (profile == null) return;
+
+            TimeInBtn.Enabled = false;
+            var (success, timeIn, error) = await SupabaseHelper.Instance.TimeInAsync(profile.Id);
+
+            if (success)
+            {
+                label6.Text        = timeIn;
+                label7.Text        = "Not Yet";
+                HoursTodayLbl.Text = "—";
+                StatusLbl.Text     = "Present";
+                StatusLbl.ForeColor = Color.FromArgb(80, 200, 80);
+
+                TimeInBtn.Enabled  = false;
+                TimeOutBtn.Enabled = true;
+
+                await LoadMyLogs();
+            }
+            else
+            {
+                TimeInBtn.Enabled = true;
+                MessageBox.Show(error, "Time In Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        // ─── TIME OUT BUTTON ─────────────────────────────────────────────────────────
+        private async void TimeOutBtn_Click(object sender, EventArgs e)
+        {
+            var profile = SupabaseHelper.Instance.CurrentUserProfile;
+            if (profile == null) return;
+
+            TimeOutBtn.Enabled = false;
+            var (success, timeOut, totalHours, error) = await SupabaseHelper.Instance.TimeOutAsync(profile.Id);
+
+            if (success)
+            {
+                label7.Text        = timeOut;
+                HoursTodayLbl.Text = totalHours;
+                StatusLbl.Text     = "Offline";
+                StatusLbl.ForeColor = Color.FromArgb(220, 60, 60);
+
+                TimeOutBtn.Enabled = false;
+
+                await LoadMyLogs();
+            }
+            else
+            {
+                TimeOutBtn.Enabled = true;
+                MessageBox.Show(error, "Time Out Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
         private void DateTimePicker_Paint(object? sender, PaintEventArgs e) { }
 
         // ─── PANEL PAINTS ────────────────────────────────────────────────────

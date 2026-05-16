@@ -89,13 +89,13 @@
             // 
             label5.AutoSize = true;
             label5.BackColor = Color.Transparent;
-            label5.Font = new Font("Cambria", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label5.Font = new Font("Arial", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label5.ForeColor = Color.DarkGray;
-            label5.Location = new Point(34, 270);
+            label5.Location = new Point(34, 276);
             label5.Name = "label5";
-            label5.Size = new Size(60, 12);
+            label5.Size = new Size(93, 14);
             label5.TabIndex = 20;
-            label5.Text = "USERNAME";
+            label5.Text = "EMAIL ADDRESS";
             // 
             // UsernameBox
             // 
@@ -111,11 +111,11 @@
             // 
             label6.AutoSize = true;
             label6.BackColor = Color.Transparent;
-            label6.Font = new Font("Cambria", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label6.Font = new Font("Arial", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label6.ForeColor = Color.DarkGray;
-            label6.Location = new Point(34, 337);
+            label6.Location = new Point(34, 340);
             label6.Name = "label6";
-            label6.Size = new Size(64, 12);
+            label6.Size = new Size(67, 14);
             label6.TabIndex = 22;
             label6.Text = "PASSWORD";
             // 
@@ -145,7 +145,7 @@
             label7.BackColor = Color.Transparent;
             label7.Font = new Font("Calibri", 8.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
             label7.ForeColor = Color.Goldenrod;
-            label7.Location = new Point(204, 391);
+            label7.Location = new Point(204, 381);
             label7.Name = "label7";
             label7.Size = new Size(90, 13);
             label7.TabIndex = 25;

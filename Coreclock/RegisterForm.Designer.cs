@@ -37,7 +37,7 @@
             label5 = new Label();
             UsernameBox = new TextBox();
             label1 = new Label();
-            textBox1 = new TextBox();
+            ContactBox = new TextBox();
             label2 = new Label();
             label3 = new Label();
             textBox2 = new TextBox();
@@ -120,11 +120,11 @@
             // 
             label5.AutoSize = true;
             label5.BackColor = Color.Transparent;
-            label5.Font = new Font("Cambria", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label5.Font = new Font("Arial", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label5.ForeColor = Color.DarkGray;
             label5.Location = new Point(34, 252);
             label5.Name = "label5";
-            label5.Size = new Size(66, 12);
+            label5.Size = new Size(71, 14);
             label5.TabIndex = 34;
             label5.Text = "FIRST NAME";
             // 
@@ -132,6 +132,7 @@
             // 
             UsernameBox.BackColor = Color.FromArgb(31, 31, 31);
             UsernameBox.BorderStyle = BorderStyle.FixedSingle;
+            UsernameBox.ForeColor = Color.White;
             UsernameBox.Location = new Point(34, 270);
             UsernameBox.Name = "UsernameBox";
             UsernameBox.Size = new Size(125, 23);
@@ -141,32 +142,33 @@
             // 
             label1.AutoSize = true;
             label1.BackColor = Color.Transparent;
-            label1.Font = new Font("Cambria", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label1.Font = new Font("Arial", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label1.ForeColor = Color.DarkGray;
             label1.Location = new Point(34, 305);
             label1.Name = "label1";
-            label1.Size = new Size(60, 12);
+            label1.Size = new Size(106, 14);
             label1.TabIndex = 36;
-            label1.Text = "USERNAME";
+            label1.Text = "CONTACT NUMBER";
             // 
-            // textBox1
+            // ContactBox
             // 
-            textBox1.BackColor = Color.FromArgb(31, 31, 31);
-            textBox1.BorderStyle = BorderStyle.FixedSingle;
-            textBox1.Location = new Point(34, 323);
-            textBox1.Name = "textBox1";
-            textBox1.Size = new Size(260, 23);
-            textBox1.TabIndex = 37;
+            ContactBox.BackColor = Color.FromArgb(31, 31, 31);
+            ContactBox.BorderStyle = BorderStyle.FixedSingle;
+            ContactBox.ForeColor = Color.White;
+            ContactBox.Location = new Point(34, 323);
+            ContactBox.Name = "ContactBox";
+            ContactBox.Size = new Size(260, 23);
+            ContactBox.TabIndex = 37;
             // 
             // label2
             // 
             label2.AutoSize = true;
             label2.BackColor = Color.Transparent;
-            label2.Font = new Font("Cambria", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label2.Font = new Font("Arial", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label2.ForeColor = Color.DarkGray;
             label2.Location = new Point(34, 359);
             label2.Name = "label2";
-            label2.Size = new Size(87, 12);
+            label2.Size = new Size(93, 14);
             label2.TabIndex = 38;
             label2.Text = "EMAIL ADDRESS";
             // 
@@ -174,11 +176,11 @@
             // 
             label3.AutoSize = true;
             label3.BackColor = Color.Transparent;
-            label3.Font = new Font("Cambria", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label3.Font = new Font("Arial", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label3.ForeColor = Color.DarkGray;
             label3.Location = new Point(34, 412);
             label3.Name = "label3";
-            label3.Size = new Size(64, 12);
+            label3.Size = new Size(67, 14);
             label3.TabIndex = 40;
             label3.Text = "PASSWORD";
             // 
@@ -186,6 +188,7 @@
             // 
             textBox2.BackColor = Color.FromArgb(31, 31, 31);
             textBox2.BorderStyle = BorderStyle.FixedSingle;
+            textBox2.ForeColor = Color.White;
             textBox2.Location = new Point(34, 430);
             textBox2.Name = "textBox2";
             textBox2.PasswordChar = '*';
@@ -196,11 +199,11 @@
             // 
             label4.AutoSize = true;
             label4.BackColor = Color.Transparent;
-            label4.Font = new Font("Cambria", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label4.Font = new Font("Arial", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label4.ForeColor = Color.DarkGray;
             label4.Location = new Point(34, 468);
             label4.Name = "label4";
-            label4.Size = new Size(113, 12);
+            label4.Size = new Size(119, 14);
             label4.TabIndex = 42;
             label4.Text = "CONFIRM PASSWORD";
             // 
@@ -208,6 +211,7 @@
             // 
             textBox3.BackColor = Color.FromArgb(31, 31, 31);
             textBox3.BorderStyle = BorderStyle.FixedSingle;
+            textBox3.ForeColor = Color.White;
             textBox3.Location = new Point(34, 486);
             textBox3.Name = "textBox3";
             textBox3.PasswordChar = '*';
@@ -242,6 +246,7 @@
             // 
             textBox4.BackColor = Color.FromArgb(31, 31, 31);
             textBox4.BorderStyle = BorderStyle.FixedSingle;
+            textBox4.ForeColor = Color.White;
             textBox4.Location = new Point(34, 377);
             textBox4.Name = "textBox4";
             textBox4.Size = new Size(260, 23);
@@ -251,11 +256,11 @@
             // 
             label6.AutoSize = true;
             label6.BackColor = Color.Transparent;
-            label6.Font = new Font("Cambria", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label6.Font = new Font("Arial", 8.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label6.ForeColor = Color.DarkGray;
             label6.Location = new Point(169, 252);
             label6.Name = "label6";
-            label6.Size = new Size(62, 12);
+            label6.Size = new Size(70, 14);
             label6.TabIndex = 47;
             label6.Text = "LAST NAME";
             // 
@@ -263,6 +268,7 @@
             // 
             textBox5.BackColor = Color.FromArgb(31, 31, 31);
             textBox5.BorderStyle = BorderStyle.FixedSingle;
+            textBox5.ForeColor = Color.White;
             textBox5.Location = new Point(165, 270);
             textBox5.Name = "textBox5";
             textBox5.Size = new Size(129, 23);
@@ -284,7 +290,7 @@
             Controls.Add(textBox2);
             Controls.Add(label3);
             Controls.Add(label2);
-            Controls.Add(textBox1);
+            Controls.Add(ContactBox);
             Controls.Add(label1);
             Controls.Add(UsernameBox);
             Controls.Add(label5);
@@ -326,5 +332,6 @@
         private TextBox textBox4;
         private Label label6;
         private TextBox textBox5;
+        private TextBox ContactBox;
     }
 }

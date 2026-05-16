@@ -70,9 +70,9 @@ namespace Coreclock
             // ProfilePanel
             // 
             ProfilePanel.BackColor = Color.FromArgb(20, 20, 20);
-            ProfilePanel.Location = new Point(14, 479);
+            ProfilePanel.Location = new Point(14, 423);
             ProfilePanel.Name = "ProfilePanel";
-            ProfilePanel.Size = new Size(188, 181);
+            ProfilePanel.Size = new Size(188, 223);
             ProfilePanel.TabIndex = 16;
             // 
             // AttendanceLogsBtn
