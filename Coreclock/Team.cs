@@ -79,5 +79,12 @@ namespace Coreclock
             ApplyRoundedCorners();
             StylePanels();
         }
+
+        private void label11_Click(object sender, EventArgs e)
+        {
+            HomeForm home = new HomeForm();
+            home.Show();
+            this.Hide();
+        }
     }
 }

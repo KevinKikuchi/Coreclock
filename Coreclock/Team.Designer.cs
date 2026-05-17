@@ -71,7 +71,7 @@
             label1.BackColor = Color.Transparent;
             label1.Font = new Font("Segoe UI Semibold", 27.75F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label1.ForeColor = Color.White;
-            label1.Location = new Point(230, 163);
+            label1.Location = new Point(245, 163);
             label1.Name = "label1";
             label1.Size = new Size(174, 50);
             label1.TabIndex = 1;
@@ -83,7 +83,7 @@
             label2.BackColor = Color.Transparent;
             label2.Font = new Font("Segoe UI Semibold", 27.75F, FontStyle.Bold, GraphicsUnit.Point, 0);
             label2.ForeColor = Color.Goldenrod;
-            label2.Location = new Point(392, 163);
+            label2.Location = new Point(410, 163);
             label2.Name = "label2";
             label2.Size = new Size(120, 50);
             label2.TabIndex = 2;
@@ -95,7 +95,7 @@
             label3.BackColor = Color.Transparent;
             label3.Font = new Font("Bahnschrift Light", 14.25F, FontStyle.Regular, GraphicsUnit.Point, 0);
             label3.ForeColor = Color.Gray;
-            label3.Location = new Point(299, 213);
+            label3.Location = new Point(320, 213);
             label3.Name = "label3";
             label3.Size = new Size(133, 23);
             label3.TabIndex = 3;
@@ -223,11 +223,11 @@
             label6.BackColor = Color.Transparent;
             label6.Font = new Font("Bahnschrift SemiLight", 15.75F, FontStyle.Regular, GraphicsUnit.Point, 0);
             label6.ForeColor = Color.Goldenrod;
-            label6.Location = new Point(39, 164);
+            label6.Location = new Point(23, 164);
             label6.Name = "label6";
-            label6.Size = new Size(140, 25);
+            label6.Size = new Size(175, 25);
             label6.TabIndex = 7;
-            label6.Text = "UI DESIGNER";
+            label6.Text = "UI/UX DESIGNER";
             // 
             // pictureBox4
             // 
@@ -249,6 +249,7 @@
             label11.Size = new Size(164, 15);
             label11.TabIndex = 14;
             label11.Text = "Developed By: B I S A C O D E ";
+            label11.Click += label11_Click;
             // 
             // Team
             // 
