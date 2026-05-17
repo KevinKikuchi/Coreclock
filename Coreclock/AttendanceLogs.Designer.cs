@@ -197,6 +197,7 @@ namespace Coreclock
             // 
             // DateTimePicker
             // 
+            DateTimePicker.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             DateTimePicker.CalendarForeColor = Color.IndianRed;
             DateTimePicker.CalendarMonthBackground = SystemColors.InactiveCaption;
             DateTimePicker.Location = new Point(1293, 47);
@@ -206,6 +207,7 @@ namespace Coreclock
             // 
             // CurrentTime
             // 
+            CurrentTime.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             CurrentTime.AutoSize = true;
             CurrentTime.Font = new Font("Verdana", 14.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             CurrentTime.ForeColor = Color.Goldenrod;
@@ -217,6 +219,7 @@ namespace Coreclock
             // 
             // AttendanceLogsDataGridView
             // 
+            AttendanceLogsDataGridView.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             AttendanceLogsDataGridView.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedHeaders;
             AttendanceLogsDataGridView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             AttendanceLogsDataGridView.Location = new Point(229, 252);

@@ -84,6 +84,9 @@ namespace Coreclock
         public AttendanceLogs()
         {
             InitializeComponent();
+            var screen = Screen.FromControl(this).WorkingArea;
+            if (this.Width > screen.Width) this.Width = screen.Width;
+            if (this.Height > screen.Height) this.Height = screen.Height;
             ApplyRoundedCorners();
             StartClock();
             StyleDateTimePicker();

@@ -38,6 +38,9 @@ namespace Coreclock
         public EmployeeSchedule()
         {
             InitializeComponent();
+            var screen = Screen.FromControl(this).WorkingArea;
+            if (this.Width > screen.Width) this.Width = screen.Width;
+            if (this.Height > screen.Height) this.Height = screen.Height;
             SetActiveButton(EmployeBtn);
             ApplyRoundedCorners();
             StartClock();

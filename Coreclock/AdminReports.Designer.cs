@@ -1,4 +1,4 @@
-﻿namespace Coreclock
+namespace Coreclock
 {
     partial class AdminReports
     {
@@ -192,6 +192,7 @@
             // 
             // CurrentTime
             // 
+            CurrentTime.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             CurrentTime.AutoSize = true;
             CurrentTime.Font = new Font("Verdana", 14.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             CurrentTime.ForeColor = Color.Goldenrod;
@@ -203,6 +204,7 @@
             // 
             // DateTimePicker
             // 
+            DateTimePicker.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             DateTimePicker.CalendarForeColor = Color.IndianRed;
             DateTimePicker.CalendarMonthBackground = SystemColors.InactiveCaption;
             DateTimePicker.Location = new Point(1293, 47);

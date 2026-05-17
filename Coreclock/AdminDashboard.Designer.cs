@@ -1,4 +1,4 @@
-﻿namespace Coreclock
+namespace Coreclock
 {
     partial class AdminDashboard
     {
@@ -220,6 +220,7 @@
             // 
             // DateTimePicker
             // 
+            DateTimePicker.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             DateTimePicker.CalendarForeColor = Color.IndianRed;
             DateTimePicker.CalendarMonthBackground = SystemColors.InactiveCaption;
             DateTimePicker.Location = new Point(1293, 47);
@@ -229,6 +230,7 @@
             // 
             // CurrentTime
             // 
+            CurrentTime.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             CurrentTime.AutoSize = true;
             CurrentTime.Font = new Font("Verdana", 14.25F, FontStyle.Bold, GraphicsUnit.Point, 0);
             CurrentTime.ForeColor = Color.Goldenrod;
@@ -387,6 +389,7 @@
             // 
             // EmployeeDataGridView
             // 
+            EmployeeDataGridView.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             EmployeeDataGridView.BackgroundColor = Color.FromArgb(20, 20, 20);
             EmployeeDataGridView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             EmployeeDataGridView.Location = new Point(236, 198);
@@ -396,6 +399,7 @@
             // 
             // AttendanceLogsDataGridView
             // 
+            AttendanceLogsDataGridView.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             AttendanceLogsDataGridView.BackgroundColor = Color.FromArgb(20, 20, 20);
             AttendanceLogsDataGridView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             AttendanceLogsDataGridView.Location = new Point(236, 421);
